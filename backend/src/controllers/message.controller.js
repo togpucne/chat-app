@@ -50,11 +50,11 @@ export const sendMessage = async (req, res) => {
       image: imageUrl,
     });
 
-    await new Message.save();
+    await newMessage.save();
 
     res.status(201).json(newMessage);
   } catch (error) {
     console.log("Lỗi gửi tin nhắn!" + error.message);
-    res.status(500).json({ error: "Lỗi hệ thống" });
+    res.status(500).json({ message: "Lỗi hệ thống" });
   }
 };
