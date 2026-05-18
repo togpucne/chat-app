@@ -87,6 +87,25 @@ export const useChatStore = create((set, get) => ({
         }
     },
 
+    forwardMessages: async (recipientIds, messagesToForward) => {
+        try {
+            for (const recipientId of recipientIds) {
+                for (const msg of messagesToForward) {
+                    const messageData = {
+                        text: msg.text || "",
+                        image: msg.image || null,
+                        file: msg.file ? { ...msg.file } : null,
+                        replyTo: null
+                    };
+                    await axiosInstance.post(`/messages/send/${recipientId}`, messageData);
+                }
+            }
+            toast.success("Chuyển tiếp tin nhắn thành công!");
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Lỗi chuyển tiếp");
+        }
+    },
+
     deleteMessage: async (messageId, action) => {
         try {
             await axiosInstance.post(`/messages/delete/${messageId}`, { action });

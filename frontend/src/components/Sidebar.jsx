@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useChatStore } from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
 import SidebarSkeleton from "./skeletons/SidebarSkeleton";
-import { Users, BellOff } from "lucide-react";
+import { Users, BellOff, Pin } from "lucide-react";
 
 const formatMessageTime = (createdAt) => {
     if (!createdAt) return "";
@@ -85,7 +85,13 @@ const Sidebar = () => {
 
     const { onlineUsers, authUser } = useAuthStore();
     const [showOnlineOnly, setShowOnlineOnly] = useState(false);
+    const [pinnedToggle, setPinnedToggle] = useState(false);
 
+    useEffect(() => {
+        const handlePinnedChanged = () => setPinnedToggle(prev => !prev);
+        window.addEventListener("pinnedConversationsChanged", handlePinnedChanged);
+        return () => window.removeEventListener("pinnedConversationsChanged", handlePinnedChanged);
+    }, []);
 
     useEffect(() => {
         getUsers();
@@ -95,6 +101,14 @@ const Sidebar = () => {
         .filter(user => {
             if (!authUser) return true;
             return localStorage.getItem(`deleted_chat_${authUser._id}_${user._id}`) !== "true";
+        })
+        .sort((a, b) => {
+            if (!authUser) return 0;
+            const aPinned = localStorage.getItem(`pin_conv_${authUser._id}_${a._id}`) === "true";
+            const bPinned = localStorage.getItem(`pin_conv_${authUser._id}_${b._id}`) === "true";
+            if (aPinned && !bPinned) return -1;
+            if (!aPinned && bPinned) return 1;
+            return 0;
         });
 
     if (isUsersLoading) {
@@ -129,6 +143,7 @@ const Sidebar = () => {
             <div className="overflow-y-auto w-full py-3">
                 {filteredUsers.map((user) => {
                     const isMuted = authUser && localStorage.getItem(`muted_${authUser._id}_${user._id}`) === "true";
+                    const isPinned = authUser && localStorage.getItem(`pin_conv_${authUser._id}_${user._id}`) === "true";
                     return (
                         <button
                             key={user._id}
@@ -190,15 +205,21 @@ const Sidebar = () => {
                                     {formatLastActiveShort(user.updatedAt, onlineUsers.includes(user._id))}
                                 </div>
                                 {isMuted ? (
-                                    <div className="flex items-center justify-center mr-2">
+                                    <div className="flex items-center justify-center mr-2 gap-1.5">
+                                        {isPinned && <Pin className="size-3 text-slate-400 fill-slate-400" />}
                                         <BellOff className="size-4 text-zinc-400" />
                                     </div>
                                 ) : unreadCounts[user._id] > 0 ? (
-                                    <span className="flex items-center justify-center min-w-5 h-5 px-1.5 bg-red-500 text-white text-[10px] font-black rounded-full shadow-sm mr-2 animate-pulse">
-                                        {unreadCounts[user._id] > 5 ? "5+" : unreadCounts[user._id]}
-                                    </span>
+                                    <div className="flex items-center mr-2 gap-1.5">
+                                        {isPinned && <Pin className="size-3 text-slate-400 fill-slate-400" />}
+                                        <span className="flex items-center justify-center min-w-5 h-5 px-1.5 bg-red-500 text-white text-[10px] font-black rounded-full shadow-sm animate-pulse">
+                                            {unreadCounts[user._id] > 5 ? "5+" : unreadCounts[user._id]}
+                                        </span>
+                                    </div>
                                 ) : (
-                                    <div className="h-5 w-5"></div>
+                                    <div className="flex items-center justify-end mr-2">
+                                        {isPinned && <Pin className="size-3 text-slate-400 fill-slate-400" />}
+                                    </div>
                                 )}
                             </div>
                         </div>
