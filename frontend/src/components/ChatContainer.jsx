@@ -5,7 +5,7 @@ import MessageInput from "./MessageInput";
 import MessagesSkeleton from "./skeletons/MessagesSkeleton";
 import { useAuthStore } from "../store/useAuthStore";
 import { formatMessageTime } from "../lib/utils";
-import { MoreVertical, Pin, X, Paperclip, RotateCcw, RotateCw, Download } from "lucide-react";
+import { MoreVertical, Pin, X, Paperclip, RotateCcw, RotateCw, Download, Search, Trash2, Ban, Bell, Link2, FileText, Image, Globe, Check } from "lucide-react";
 
 // Kiểm tra 2 tin nhắn có được gửi ở 2 ngày khác nhau hay không
 const isDifferentDay = (msg1, msg2) => {
@@ -74,6 +74,9 @@ const renderFormattedText = (text) => {
         // Xóa hoàn toàn các tag không được phép (như script, iframe, img, v.v.)
         sanitized = sanitized.replace(/<(?!(\/?(strong|b|em|i|del|strike|code|br|span|div|p)\b))[^>]+>/gi, "");
 
+        // Convert URLs starting with http:// or https:// to clickable blue links
+        sanitized = sanitized.replace(/(https?:\/\/[^\s<]+)/gi, "<a href='$1' target='_blank' rel='noopener noreferrer' class='text-[#0068ff] font-semibold hover:underline break-all'>$1</a>");
+
         return <span dangerouslySetInnerHTML={{ __html: sanitized }} />;
     }
 
@@ -101,16 +104,29 @@ const renderFormattedText = (text) => {
     // Định dạng Inline code: `text`
     escaped = escaped.replace(/`(.*?)`/g, "<code class='bg-base-300/85 px-1.5 py-0.5 rounded font-mono text-[11px] text-secondary-content'>$1</code>");
 
+    // Convert URLs starting with http:// or https:// to clickable blue links
+    escaped = escaped.replace(/(https?:\/\/[^\s<]+)/gi, "<a href='$1' target='_blank' rel='noopener noreferrer' class='text-[#0068ff] font-semibold hover:underline break-all'>$1</a>");
+
     return <span dangerouslySetInnerHTML={{ __html: escaped }} />;
 };
 
 const ChatContainer = () => {
-    const { messages, getMessages, isMessagesLoading, selectedUser, subscribeToMessages, unsubscribeFromMessages, deleteMessage, setReplyingTo, pinMessage, reactMessage } = useChatStore();
-    const { authUser } = useAuthStore();
+    const { messages, getMessages, isMessagesLoading, selectedUser, subscribeToMessages, unsubscribeFromMessages, deleteMessage, setReplyingTo, pinMessage, reactMessage, clearMessages } = useChatStore();
+    const { authUser, onlineUsers } = useAuthStore();
     const messageEndRef = useRef(null);
 
     const [viewingImage, setViewingImage] = useState(null);
     const [rotation, setRotation] = useState(0);
+
+    // Search and Sidebar states
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+    // Sidebar Mock action states (to fulfill Block, Mute, Pin requests)
+    const [isBlocked, setIsBlocked] = useState(false);
+    const [isMuted, setIsMuted] = useState(false);
+    const [isPinnedConv, setIsPinnedConv] = useState(false);
 
     const handleRotateLeft = () => setRotation((prev) => (prev - 90) % 360);
     const handleRotateRight = () => setRotation((prev) => (prev + 90) % 360);
@@ -166,6 +182,14 @@ const ChatContainer = () => {
         );
     }
 
+    // Lọc các tin nhắn chia sẻ theo các định dạng cụ thể (Ảnh, File, Link)
+    const sharedImages = messages.filter(msg => msg.image && !msg.isRecalled);
+    const sharedFiles = messages.filter(msg => msg.file && msg.file.url && !msg.isRecalled);
+    const sharedLinks = messages.filter(msg => {
+        if (msg.isRecalled || !msg.text) return false;
+        return /https?:\/\/[^\s]+/gi.test(msg.text);
+    });
+
     // Nhóm tin nhắn theo ngày để làm sticky date headers
     const groupMessagesByDate = (msgs) => {
         const groups = {};
@@ -179,15 +203,54 @@ const ChatContainer = () => {
         return groups;
     };
 
-    const groupedMessages = groupMessagesByDate(messages);
+    const filteredMessages = searchQuery.trim() !== "" 
+        ? messages.filter(msg => {
+            if (msg.isRecalled) return false;
+            if (msg.text && msg.text.toLowerCase().includes(searchQuery.toLowerCase())) return true;
+            if (msg.file && msg.file.name && msg.file.name.toLowerCase().includes(searchQuery.toLowerCase())) return true;
+            return false;
+          })
+        : messages;
+
+    const groupedMessages = groupMessagesByDate(filteredMessages);
     const pinnedMessages = messages.filter((m) => m.isPinned && !m.isRecalled);
     const latestPinned = pinnedMessages[pinnedMessages.length - 1];
 
     return (
-        <div className="flex-1 flex flex-col overflow-auto relative">
-            <ChatHeader />
+        <div className="flex-1 flex overflow-hidden bg-base-100">
+            {/* Left Area: Main Chat Flow */}
+            <div className="flex-1 flex flex-col overflow-hidden relative border-r border-base-300">
+                <ChatHeader 
+                    onToggleSearch={() => setIsSearchOpen(!isSearchOpen)}
+                    isSearchOpen={isSearchOpen}
+                    onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+                    isSidebarOpen={isSidebarOpen}
+                />
 
-            {/* Pinned Message Banner */}
+                {/* Search Bar Input Panel */}
+                {isSearchOpen && (
+                    <div className="p-3 bg-base-200/50 border-b border-base-300 flex items-center gap-2 animate-fade-in z-10 backdrop-blur-sm shadow-sm">
+                        <Search className="size-4 text-base-content/50" />
+                        <input
+                            type="text"
+                            placeholder="Tìm kiếm tin nhắn..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="input input-sm flex-1 bg-base-100 border border-base-300 rounded focus:outline-none focus:border-primary text-xs"
+                            autoFocus
+                        />
+                        {searchQuery && (
+                            <button 
+                                onClick={() => setSearchQuery("")}
+                                className="btn btn-ghost btn-circle btn-xs text-base-content/50 hover:text-base-content bg-base-200"
+                            >
+                                <X className="size-3" />
+                            </button>
+                        )}
+                    </div>
+                )}
+
+                {/* Pinned Message Banner */}
             {latestPinned && (
                 <div 
                     onClick={() => {
@@ -235,8 +298,16 @@ const ChatContainer = () => {
                             </span>
                         </div>
 
-                        {msgs.map((message) => (
-                            <div
+                        {msgs.map((message, idx) => {
+                            const nextMessage = msgs[idx + 1];
+                            const isLastInGroup = !nextMessage || 
+                                nextMessage.senderId !== message.senderId || 
+                                new Date(nextMessage.createdAt).getMinutes() !== new Date(message.createdAt).getMinutes() ||
+                                new Date(nextMessage.createdAt).getHours() !== new Date(message.createdAt).getHours() ||
+                                new Date(nextMessage.createdAt).getDate() !== new Date(message.createdAt).getDate();
+
+                            return (
+                                <div
                                 key={message._id}
                                 id={`msg-${message._id}`}
                                 className={`chat ${message.senderId === authUser._id ? "chat-end" : "chat-start"} group relative transition-colors duration-500 rounded-xl p-1`}
@@ -406,9 +477,41 @@ const ChatContainer = () => {
                                                         )}
 
                                                         {message.text && (
-                                                            <p className="break-words text-sm whitespace-pre-wrap">
-                                                                {renderFormattedText(message.text)}
-                                                            </p>
+                                                            <div className="flex flex-col gap-1.5">
+                                                                <p className="break-words text-sm whitespace-pre-wrap">
+                                                                    {renderFormattedText(message.text)}
+                                                                </p>
+                                                                
+                                                                {/* Link Preview Card */}
+                                                                {/https?:\/\/[^\s]+/gi.test(message.text) && (
+                                                                    <a href={message.text.match(/(https?:\/\/[^\s]+)/gi)?.[0] || "#"} target="_blank" rel="noopener noreferrer" className="mt-1 border border-slate-200/80 rounded-xl bg-white overflow-hidden shadow-sm max-w-[280px] select-none hover:shadow-md transition-shadow block no-underline text-inherit cursor-pointer">
+                                                                        {/* Link Thumbnail */}
+                                                                        <div className="h-32 bg-slate-100 relative overflow-hidden flex items-center justify-center">
+                                                                            <img 
+                                                                                src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&auto=format&fit=crop&q=80" 
+                                                                                alt="Link Preview" 
+                                                                                className="w-full h-full object-cover"
+                                                                            />
+                                                                            <div className="absolute top-2 left-2 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider">
+                                                                                Liên kết
+                                                                            </div>
+                                                                        </div>
+                                                                        
+                                                                        {/* Link Details */}
+                                                                        <div className="p-2.5 text-left">
+                                                                            <h4 className="text-xs font-bold text-slate-800 line-clamp-1 hover:text-blue-600 transition-colors">
+                                                                                {message.text.match(/https?:\/\/(www\.)?([^\/\s]+)/i)?.[2] || "Trang web liên kết"}
+                                                                            </h4>
+                                                                            <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5 leading-tight">
+                                                                                Bấm vào đây để truy cập và xem chi tiết nội dung trang web chia sẻ.
+                                                                            </p>
+                                                                            <span className="text-[9px] text-blue-500 font-semibold block mt-1.5 truncate">
+                                                                                {message.text.match(/(https?:\/\/[^\s]+)/gi)?.[0] || "Liên kết"}
+                                                                            </span>
+                                                                        </div>
+                                                                    </a>
+                                                                )}
+                                                            </div>
                                                         )}
                                                     </>
                                                 )}
@@ -480,19 +583,261 @@ const ChatContainer = () => {
                                     )}
                                 </div>
 
-                                {/* Time displayed below the bubble (Zalo style) */}
-                                <div className="chat-footer opacity-45 text-[10px] mt-1 select-none">
-                                    {formatMessageTime(message.createdAt)}
-                                </div>
+                                {/* Time displayed below the bubble (Zalo style) + Status Pill */}
+                                {isLastInGroup && (
+                                    <div className={`chat-footer text-[10px] mt-1 select-none flex items-center gap-1.5 ${message.senderId === authUser._id ? "justify-end" : "justify-start"}`}>
+                                        <span className="opacity-50">{formatMessageTime(message.createdAt)}</span>
+                                        
+                                        {/* Zalo Status Pill / Seen Avatar */}
+                                        {message.senderId === authUser._id && (
+                                            <>
+                                                {message._id === messages[messages.length - 1]?._id ? (
+                                                    message.isSeen ? (
+                                                        <div className="size-3.5 rounded-full overflow-hidden border border-slate-300 ml-0.5 shadow-sm animate-fade-in flex-shrink-0" title="Đã xem">
+                                                            <img src={selectedUser.profilePic || "/avatar.png"} alt="seen" className="w-full h-full object-cover" />
+                                                        </div>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-0.5 bg-slate-200 border border-slate-300 text-slate-700 rounded-full px-1.5 py-[1px] text-[8px] font-semibold">
+                                                            <Check className="size-2.5" /> Đã gửi
+                                                        </span>
+                                                    )
+                                                ) : null}
+                                            </>
+                                        )}
+                                    </div>
+                                )}
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 ))}
 
                 <div ref={messageEndRef} />
             </div>
 
-            <MessageInput />
+            {/* Block Action Banner or Message Input */}
+            {isBlocked ? (
+                <div 
+                    onClick={() => setIsBlocked(false)}
+                    className="p-4 bg-red-50 border-t border-red-200 text-red-600 text-sm font-semibold flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-red-100 transition-colors select-none"
+                >
+                    <span className="flex items-center gap-1.5"><Ban className="size-4" /> Bạn đã chặn tin nhắn từ người dùng này.</span>
+                    <span className="text-[10px] font-normal text-red-500 underline">Bấm vào đây để bỏ chặn</span>
+                </div>
+            ) : (
+                <MessageInput />
+            )}
+            </div>
+
+            {/* Zalo Info Right Sidebar Panel */}
+            {isSidebarOpen && (
+                <div className="w-80 bg-base-100 flex-shrink-0 flex flex-col overflow-y-auto z-20 shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.05)] select-none animate-slide-left">
+                    {/* Sidebar Header */}
+                    <div className="p-4 border-b border-base-300 flex items-center justify-between bg-base-200/50 sticky top-0 z-10 backdrop-blur-md">
+                        <h3 className="font-bold text-sm text-base-content">Thông tin hội thoại</h3>
+                        <button 
+                            onClick={() => setIsSidebarOpen(false)}
+                            className="btn btn-ghost btn-circle btn-xs text-base-content/60 hover:text-base-content"
+                        >
+                            <X className="size-4" />
+                        </button>
+                    </div>
+
+                    {/* User profile details block */}
+                    <div className="p-6 flex flex-col items-center border-b border-base-300 text-center bg-base-50/10">
+                        <div className="avatar mb-3">
+                            <div className="size-16 rounded-full ring-2 ring-primary/20 ring-offset-2 relative">
+                                <img src={selectedUser.profilePic || "/avatar.png"} alt={selectedUser.fullName} />
+                                {onlineUsers.includes(selectedUser._id) && (
+                                    <span className="absolute bottom-0.5 right-0.5 size-3.5 bg-green-500 rounded-full border-2 border-white"></span>
+                                )}
+                            </div>
+                        </div>
+                        <h4 className="font-bold text-base text-base-content flex items-center gap-1.5 justify-center">
+                            {selectedUser.fullName}
+                        </h4>
+                        <p className="text-xs text-base-content/50 mt-0.5">
+                            {onlineUsers.includes(selectedUser._id) ? "Đang hoạt động" : "Ngoại tuyến"}
+                        </p>
+
+                        {/* Action buttons (Mute, Pin, Block) */}
+                        <div className="grid grid-cols-3 gap-2 w-full mt-5">
+                            {/* Mute action */}
+                            <button 
+                                onClick={() => setIsMuted(!isMuted)}
+                                className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs gap-1.5 transition-colors ${
+                                    isMuted 
+                                        ? "bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100" 
+                                        : "bg-base-200/50 border-base-300 text-base-content/70 hover:bg-base-200"
+                                }`}
+                            >
+                                {isMuted ? <BellOff className="size-4" /> : <Bell className="size-4" />}
+                                <span className="text-[10px] font-semibold leading-none">{isMuted ? "Bật âm" : "Tắt âm"}</span>
+                            </button>
+
+                            {/* Pin action */}
+                            <button 
+                                onClick={() => setIsPinnedConv(!isPinnedConv)}
+                                className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs gap-1.5 transition-colors ${
+                                    isPinnedConv 
+                                        ? "bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100" 
+                                        : "bg-base-200/50 border-base-300 text-base-content/70 hover:bg-base-200"
+                                }`}
+                            >
+                                <Pin className="size-4 rotate-45" />
+                                <span className="text-[10px] font-semibold leading-none">{isPinnedConv ? "Bỏ ghim" : "Ghim"}</span>
+                            </button>
+
+                            {/* Block action */}
+                            <button 
+                                onClick={() => setIsBlocked(!isBlocked)}
+                                className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs gap-1.5 transition-colors ${
+                                    isBlocked 
+                                        ? "bg-red-50 border-red-200 text-red-600 hover:bg-red-100" 
+                                        : "bg-base-200/50 border-base-300 text-base-content/70 hover:bg-base-200"
+                                }`}
+                            >
+                                <Ban className="size-4" />
+                                <span className="text-[10px] font-semibold leading-none">{isBlocked ? "Bỏ chặn" : "Chặn"}</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Shared History sections */}
+                    <div className="flex-1 p-4 space-y-5">
+                        
+                        {/* Image/Video section */}
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <h5 className="font-bold text-xs text-base-content/80 flex items-center gap-1.5">
+                                    <Image className="size-3.5 text-primary" />
+                                    <span>Ảnh/Video</span>
+                                </h5>
+                                <span className="text-[10px] text-base-content/50 font-medium">
+                                    {sharedImages.length} mục
+                                </span>
+                            </div>
+                            
+                            {sharedImages.length > 0 ? (
+                                <div className="grid grid-cols-3 gap-1.5">
+                                    {sharedImages.slice(0, 9).map((msg, i) => (
+                                        <div 
+                                            key={i} 
+                                            onClick={() => setViewingImage(msg.image)}
+                                            className="aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200/60 cursor-zoom-in hover:opacity-90 transition-opacity"
+                                        >
+                                            <img src={msg.image} alt="Shared" className="w-full h-full object-cover" />
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-[11px] text-base-content/40 italic p-2 border border-dashed border-base-300 rounded-lg text-center">
+                                    Chưa chia sẻ hình ảnh nào
+                                </p>
+                            )}
+                        </div>
+
+                        {/* File section */}
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <h5 className="font-bold text-xs text-base-content/80 flex items-center gap-1.5">
+                                    <FileText className="size-3.5 text-primary" />
+                                    <span>Tệp tin</span>
+                                </h5>
+                                <span className="text-[10px] text-base-content/50 font-medium">
+                                    {sharedFiles.length} tệp
+                                </span>
+                            </div>
+                            
+                            {sharedFiles.length > 0 ? (
+                                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                                    {sharedFiles.map((msg, i) => (
+                                        <a 
+                                            key={i} 
+                                            href={msg.file.url} 
+                                            download={msg.file.name}
+                                            className="flex items-center gap-2 p-2 bg-base-200/50 hover:bg-base-200 border border-base-300 rounded-lg transition-colors select-none text-left"
+                                        >
+                                            <div className="bg-primary/10 text-primary p-1.5 rounded flex-shrink-0">
+                                                <FileText className="size-3.5" />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-[10px] font-bold text-base-content truncate leading-tight">{msg.file.name}</p>
+                                                <p className="text-[8px] text-base-content/50 leading-none mt-0.5">
+                                                    {msg.file.size ? `${(msg.file.size / 1024).toFixed(1)} KB` : "Tệp tin"}
+                                                </p>
+                                            </div>
+                                        </a>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-[11px] text-base-content/40 italic p-2 border border-dashed border-base-300 rounded-lg text-center">
+                                    Chưa chia sẻ tệp tin nào
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Shared Links section */}
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <h5 className="font-bold text-xs text-base-content/80 flex items-center gap-1.5">
+                                    <Link2 className="size-3.5 text-primary" />
+                                    <span>Liên kết</span>
+                                </h5>
+                                <span className="text-[10px] text-base-content/50 font-medium">
+                                    {sharedLinks.length} liên kết
+                                </span>
+                            </div>
+                            
+                            {sharedLinks.length > 0 ? (
+                                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                                    {sharedLinks.map((msg, i) => {
+                                        const url = msg.text.match(/(https?:\/\/[^\s]+)/gi)?.[0] || "#";
+                                        return (
+                                            <a 
+                                                key={i} 
+                                                href={url} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="flex items-center gap-2 p-2 bg-base-200/50 hover:bg-base-200 border border-base-300 rounded-lg transition-colors select-none text-left"
+                                            >
+                                                <div className="bg-blue-100 text-blue-600 p-1.5 rounded flex-shrink-0">
+                                                    <Globe className="size-3.5" />
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-[10px] font-bold text-blue-600 truncate leading-tight hover:underline">{url}</p>
+                                                    <p className="text-[8px] text-base-content/50 leading-none mt-0.5 truncate">
+                                                        {msg.text}
+                                                    </p>
+                                                </div>
+                                            </a>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <p className="text-[11px] text-base-content/40 italic p-2 border border-dashed border-base-300 rounded-lg text-center">
+                                    Chưa chia sẻ liên kết nào
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Dangerous Action Footer */}
+                    <div className="p-4 border-t border-base-300 bg-base-200/20">
+                        <button 
+                            onClick={() => {
+                                if (window.confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch sử cuộc trò chuyện này không? Hành động này không thể hoàn tác.")) {
+                                    clearMessages();
+                                }
+                            }}
+                            className="btn btn-error btn-outline btn-sm w-full gap-2 text-xs flex items-center justify-center font-bold"
+                        >
+                            <Trash2 className="size-4" />
+                            <span>Xóa lịch sử trò chuyện</span>
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Full Screen Image Viewer Modal */}
             {viewingImage && (

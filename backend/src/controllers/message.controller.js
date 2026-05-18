@@ -1,7 +1,7 @@
 import cloudinary from "../lib/cloudinary.js";
 import Message from "../models/message.model.js";
 import User from "../models/user.model.js";
-import { getReceiverSocketId, io } from "../lib/socket.js";
+import { getReceiverSocketId, io, activeChats } from "../lib/socket.js";
 
 export const getUsersForSidebar = async (req, res) => {
   try {
@@ -20,6 +20,19 @@ export const getMessages = async (req, res) => {
   try {
     const { id: userToChatId } = req.params;
     const myId = req.user._id;
+
+    // Mark all received messages as seen
+    await Message.updateMany(
+      { senderId: userToChatId, receiverId: myId, isSeen: { $ne: true } },
+      { $set: { isSeen: true } }
+    );
+
+    // Let the sender know their messages were read
+    const senderSocketId = getReceiverSocketId(userToChatId);
+    if (senderSocketId) {
+      io.to(senderSocketId).emit("recipientOpenedChat", { openerId: myId });
+    }
+
     const messages = await Message.find({
       $or: [
         { senderId: myId, receiverId: userToChatId },
@@ -52,6 +65,8 @@ export const sendMessage = async (req, res) => {
       const uploadResponse = await cloudinary.uploader.upload(image);
       imageUrl = uploadResponse.secure_url;
     }
+    const isSeen = activeChats[receiverId]?.toString() === senderId.toString();
+
     const newMessage = new Message({
       senderId,
       receiverId,
@@ -59,6 +74,7 @@ export const sendMessage = async (req, res) => {
       image: imageUrl,
       replyTo: replyTo || null,
       file: file || null,
+      isSeen,
     });
 
     await newMessage.save();

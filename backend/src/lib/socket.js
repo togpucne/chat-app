@@ -15,6 +15,7 @@ export function getReceiverSocketId(userId) {
 }
 // used to use online users
 const userSocketMap = {};
+export const activeChats = {}; // userId -> recipientId
 
 
 io.on("connection", (socket) => {
@@ -25,9 +26,23 @@ io.on("connection", (socket) => {
     }
 
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
+
+    socket.on("userOpenedChat", ({ openerId, recipientId }) => {
+        if (openerId) {
+            activeChats[openerId] = recipientId;
+        }
+        const recipientSocketId = userSocketMap[recipientId];
+        if (recipientSocketId) {
+            io.to(recipientSocketId).emit("recipientOpenedChat", { openerId });
+        }
+    });
+
     socket.on("disconnect", () => {
         console.log("A user disconnected", socket.id);
         delete userSocketMap[userId];
+        if (userId) {
+            delete activeChats[userId];
+        }
         io.emit("getOnlineUsers", Object.keys(userSocketMap));
     });
 });

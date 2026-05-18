@@ -30,6 +30,13 @@ export const useChatStore = create((set, get) => ({
         try {
             const res = await axiosInstance.get(`/messages/${userId}`);
             set({ messages: res.data });
+            
+            // Notify active chat socket
+            const socket = useAuthStore.getState().socket;
+            const authUser = useAuthStore.getState().authUser;
+            if (socket && authUser) {
+                socket.emit("userOpenedChat", { openerId: authUser._id, recipientId: userId });
+            }
         } catch (error) {
             toast.error(error.response.data.message);
         } finally {
@@ -115,6 +122,26 @@ export const useChatStore = create((set, get) => ({
             set({
                 messages: [...get().messages, newMessage],
             });
+
+            // Immediately notify recipient we've seen it since we have the chat active
+            const authUser = useAuthStore.getState().authUser;
+            if (authUser) {
+                socket.emit("userOpenedChat", { openerId: authUser._id, recipientId: selectedUser._id });
+            }
+        });
+
+        socket.on("recipientOpenedChat", ({ openerId }) => {
+            if (selectedUser && openerId === selectedUser._id) {
+                set({
+                    messages: get().messages.map((msg) => {
+                        const senderIdStr = typeof msg.senderId === "object" ? msg.senderId?._id : msg.senderId;
+                        const myIdStr = useAuthStore.getState().authUser?._id;
+                        return senderIdStr?.toString() === myIdStr?.toString()
+                            ? { ...msg, isSeen: true }
+                            : msg;
+                    }),
+                });
+            }
         });
 
         socket.on("messageRecalled", ({ messageId }) => {
@@ -149,8 +176,19 @@ export const useChatStore = create((set, get) => ({
             socket.off("messageRecalled");
             socket.off("messagePinned");
             socket.off("messageReacted");
+            socket.off("recipientOpenedChat");
         }
     },
 
-    setSelectedUser: (selectedUser) => set({ selectedUser }),
+    setSelectedUser: (selectedUser) => {
+        set({ selectedUser });
+        if (selectedUser) {
+            const socket = useAuthStore.getState().socket;
+            const authUser = useAuthStore.getState().authUser;
+            if (socket && authUser) {
+                socket.emit("userOpenedChat", { openerId: authUser._id, recipientId: selectedUser._id });
+            }
+        }
+    },
+    clearMessages: () => set({ messages: [] }),
 }));
