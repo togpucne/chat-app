@@ -5,7 +5,7 @@ import MessageInput from "./MessageInput";
 import MessagesSkeleton from "./skeletons/MessagesSkeleton";
 import { useAuthStore } from "../store/useAuthStore";
 import { formatMessageTime } from "../lib/utils";
-import { MoreVertical, Pin, X, Paperclip, RotateCcw, RotateCw, Download, Search, Trash2, Ban, Bell, Link2, FileText, Image, Globe, Check } from "lucide-react";
+import { MoreVertical, Pin, X, Paperclip, RotateCcw, RotateCw, Download, Search, Trash2, Ban, Bell, Link2, FileText, Image, Globe, Check, Calendar, ChevronDown } from "lucide-react";
 
 // Kiểm tra 2 tin nhắn có được gửi ở 2 ngày khác nhau hay không
 const isDifferentDay = (msg1, msg2) => {
@@ -54,9 +54,11 @@ const formatDateHeader = (dateString) => {
 };
 
 // Trích xuất và định dạng chữ đậm/nghiêng/gạch ngang/code hỗ trợ cả HTML từ contenteditable và Markdown cũ
-const renderFormattedText = (text) => {
+const renderFormattedText = (text, searchQuery = "") => {
     if (!text) return "";
     
+    let htmlContent = "";
+
     // TRƯỜNG HỢP 1: Đây là văn bản Rich HTML được gửi từ ô contenteditable
     // Ta tiến hành lọc bỏ tất cả các thẻ không an toàn (XSS protection) và chỉ giữ lại những thẻ định dạng cơ bản.
     if (text.includes("<") && text.includes(">")) {
@@ -77,37 +79,49 @@ const renderFormattedText = (text) => {
         // Convert URLs starting with http:// or https:// to clickable blue links
         sanitized = sanitized.replace(/(https?:\/\/[^\s<]+)/gi, "<a href='$1' target='_blank' rel='noopener noreferrer' class='text-[#0068ff] font-semibold hover:underline break-all'>$1</a>");
 
-        return <span dangerouslySetInnerHTML={{ __html: sanitized }} />;
+        htmlContent = sanitized;
+    } else {
+        // TRƯỜNG HỢP 2: Đây là tin nhắn Markdown thô dạng cũ (để giữ tính tương thích ngược)
+        let escaped = text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+
+        // Định dạng Bold & Italic kép: ***text*** hoặc ___text___
+        escaped = escaped.replace(/\*\*\*(.*?)\*\*\*/g, "<strong><em>$1</em></strong>");
+        escaped = escaped.replace(/___(.*?)___/g, "<strong><em>$1</em></strong>");
+
+        // Định dạng Bold: **text** hoặc __text__
+        escaped = escaped.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+        escaped = escaped.replace(/__(.*?)__/g, "<strong>$1</strong>");
+
+        // Định dạng Italic: *text* hoặc _text_
+        escaped = escaped.replace(/\*(.*?)\*/g, "<em>$1</em>");
+        escaped = escaped.replace(/_(.*?)_/g, "<em>$1</em>");
+
+        // Định dạng Strikethrough: ~~text~~
+        escaped = escaped.replace(/~~(.*?)~~/g, "<del>$1</del>");
+
+        // Định dạng Inline code: `text`
+        escaped = escaped.replace(/`(.*?)`/g, "<code class='bg-base-300/85 px-1.5 py-0.5 rounded font-mono text-[11px] text-secondary-content'>$1</code>");
+
+        // Convert URLs starting with http:// or https:// to clickable blue links
+        escaped = escaped.replace(/(https?:\/\/[^\s<]+)/gi, "<a href='$1' target='_blank' rel='noopener noreferrer' class='text-[#0068ff] font-semibold hover:underline break-all'>$1</a>");
+
+        htmlContent = escaped;
     }
 
-    // TRƯỜNG HỢP 2: Đây là tin nhắn Markdown thô dạng cũ (để giữ tính tương thích ngược)
-    let escaped = text
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
+    // Highlight keyword outside HTML tags safely
+    if (searchQuery && searchQuery.trim()) {
+        const escapedQuery = searchQuery.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        const regex = new RegExp(`(<[^>]*>)|(${escapedQuery})`, "gi");
+        htmlContent = htmlContent.replace(regex, (match, tag, textMatch) => {
+            if (tag) return tag;
+            return `<span class="bg-amber-300 text-amber-950 font-bold px-[2px] rounded-sm">${textMatch}</span>`;
+        });
+    }
 
-    // Định dạng Bold & Italic kép: ***text*** hoặc ___text___
-    escaped = escaped.replace(/\*\*\*(.*?)\*\*\*/g, "<strong><em>$1</em></strong>");
-    escaped = escaped.replace(/___(.*?)___/g, "<strong><em>$1</em></strong>");
-
-    // Định dạng Bold: **text** hoặc __text__
-    escaped = escaped.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-    escaped = escaped.replace(/__(.*?)__/g, "<strong>$1</strong>");
-
-    // Định dạng Italic: *text* hoặc _text_
-    escaped = escaped.replace(/\*(.*?)\*/g, "<em>$1</em>");
-    escaped = escaped.replace(/_(.*?)_/g, "<em>$1</em>");
-
-    // Định dạng Strikethrough: ~~text~~
-    escaped = escaped.replace(/~~(.*?)~~/g, "<del>$1</del>");
-
-    // Định dạng Inline code: `text`
-    escaped = escaped.replace(/`(.*?)`/g, "<code class='bg-base-300/85 px-1.5 py-0.5 rounded font-mono text-[11px] text-secondary-content'>$1</code>");
-
-    // Convert URLs starting with http:// or https:// to clickable blue links
-    escaped = escaped.replace(/(https?:\/\/[^\s<]+)/gi, "<a href='$1' target='_blank' rel='noopener noreferrer' class='text-[#0068ff] font-semibold hover:underline break-all'>$1</a>");
-
-    return <span dangerouslySetInnerHTML={{ __html: escaped }} />;
+    return <span dangerouslySetInnerHTML={{ __html: htmlContent }} />;
 };
 
 const ChatContainer = () => {
@@ -122,17 +136,70 @@ const ChatContainer = () => {
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [showAllTextResults, setShowAllTextResults] = useState(false);
+    const [showAllFileResults, setShowAllFileResults] = useState(false);
 
-    // Sidebar Mock action states (to fulfill Block, Mute, Pin requests)
-    const [isBlocked, setIsBlocked] = useState(false);
+    // Sidebar real block action states & history expansion states
+    const [isIBlockedHim, setIsIBlockedHim] = useState(() => localStorage.getItem(`block_${authUser._id}_${selectedUser?._id}`) === "true");
+    const [isHeBlockedMe, setIsHeBlockedMe] = useState(() => localStorage.getItem(`block_${selectedUser?._id}_${authUser._id}`) === "true");
     const [isMuted, setIsMuted] = useState(false);
     const [isPinnedConv, setIsPinnedConv] = useState(false);
+
+    const [showAllSharedImages, setShowAllSharedImages] = useState(false);
+    const [showAllSharedFiles, setShowAllSharedFiles] = useState(false);
+    const [showAllSharedLinks, setShowAllSharedLinks] = useState(false);
+
+    useEffect(() => {
+        if (selectedUser && authUser) {
+            // Load block states
+            setIsIBlockedHim(localStorage.getItem(`block_${authUser._id}_${selectedUser._id}`) === "true");
+            setIsHeBlockedMe(localStorage.getItem(`block_${selectedUser._id}_${authUser._id}`) === "true");
+            
+            // Clean/Reset deleted chat flag automatically when conversation starts
+            localStorage.removeItem(`deleted_chat_${authUser._id}_${selectedUser._id}`);
+
+            // Reset history expansion states
+            setShowAllSharedImages(false);
+            setShowAllSharedFiles(false);
+            setShowAllSharedLinks(false);
+
+            // Listen to real-time block changes
+            const socket = useAuthStore.getState().socket;
+            if (socket) {
+                const handleBlockChange = ({ blockerId, isBlocked }) => {
+                    if (blockerId === selectedUser._id) {
+                        setIsHeBlockedMe(isBlocked);
+                    }
+                };
+                socket.on("blockStateChanged", handleBlockChange);
+                return () => {
+                    socket.off("blockStateChanged", handleBlockChange);
+                };
+            }
+        }
+    }, [selectedUser, authUser]);
 
     const handleRotateLeft = () => setRotation((prev) => (prev - 90) % 360);
     const handleRotateRight = () => setRotation((prev) => (prev + 90) % 360);
     const handleCloseViewer = () => {
         setViewingImage(null);
         setRotation(0);
+    };
+    const handleToggleBlock = () => {
+        const socket = useAuthStore.getState().socket;
+        if (isIBlockedHim) {
+            localStorage.removeItem(`block_${authUser._id}_${selectedUser._id}`);
+            setIsIBlockedHim(false);
+            if (socket) {
+                socket.emit("userBlockedRecipient", { blockerId: authUser._id, blockedId: selectedUser._id, isBlocked: false });
+            }
+        } else {
+            localStorage.setItem(`block_${authUser._id}_${selectedUser._id}`, "true");
+            setIsIBlockedHim(true);
+            if (socket) {
+                socket.emit("userBlockedRecipient", { blockerId: authUser._id, blockedId: selectedUser._id, isBlocked: true });
+            }
+        }
     };
     const handleDownload = async () => {
         try {
@@ -203,16 +270,95 @@ const ChatContainer = () => {
         return groups;
     };
 
-    const filteredMessages = searchQuery.trim() !== "" 
+    const textResults = searchQuery.trim() !== "" 
         ? messages.filter(msg => {
             if (msg.isRecalled) return false;
-            if (msg.text && msg.text.toLowerCase().includes(searchQuery.toLowerCase())) return true;
-            if (msg.file && msg.file.name && msg.file.name.toLowerCase().includes(searchQuery.toLowerCase())) return true;
+            const hasFile = msg.file && msg.file.url;
+            if (msg.text && msg.text.toLowerCase().includes(searchQuery.toLowerCase()) && !hasFile) return true;
             return false;
           })
-        : messages;
+        : [];
 
-    const groupedMessages = groupMessagesByDate(filteredMessages);
+    const fileResults = searchQuery.trim() !== "" 
+        ? messages.filter(msg => {
+            if (msg.isRecalled) return false;
+            const hasFile = msg.file && msg.file.url;
+            if (hasFile && msg.file.name && msg.file.name.toLowerCase().includes(searchQuery.toLowerCase())) return true;
+            return false;
+          })
+        : [];
+
+    const getFileColorAndIcon = (filename) => {
+        const ext = filename?.split('.').pop()?.toLowerCase();
+        if (['mp3', 'wav', 'ogg', 'm4a'].includes(ext)) {
+            return { bg: 'bg-purple-100 text-purple-600 border-purple-200', icon: <Paperclip className="size-4" /> };
+        }
+        if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) {
+            return { bg: 'bg-violet-100 text-violet-600 border-violet-200', icon: <FileText className="size-4" /> };
+        }
+        if (['sql', 'db'].includes(ext)) {
+            return { bg: 'bg-sky-100 text-sky-600 border-sky-200', icon: <FileText className="size-4" /> };
+        }
+        if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(ext)) {
+            return { bg: 'bg-red-100 text-red-600 border-red-200', icon: <FileText className="size-4" /> };
+        }
+        return { bg: 'bg-blue-100 text-blue-600 border-blue-200', icon: <FileText className="size-4" /> };
+    };
+
+    const formatFileSize = (bytes) => {
+        if (!bytes) return "0 KB";
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+
+    const formatMessageDateShort = (dateString) => {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) return "Vừa xong";
+        if (diffMins < 60) return `${diffMins} phút`;
+        if (diffHours < 24) return `${diffHours} giờ`;
+        if (diffDays < 7) return `${diffDays} ngày`;
+
+        const dd = String(date.getDate()).padStart(2, '0');
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        return `${dd}/${mm}`;
+    };
+
+    const handleJumpToMessage = (messageId) => {
+        const element = document.getElementById(`msg-${messageId}`);
+        if (element) {
+            element.scrollIntoView({ behavior: "smooth", block: "center" });
+            
+            // Clean, gorgeous Zalo-style fading light blue glow overlay!
+            element.classList.add("bg-sky-100/70", "dark:bg-sky-900/30", "scale-[1.015]", "ring-2", "ring-sky-400/40");
+            setTimeout(() => {
+                element.classList.remove("bg-sky-100/70", "dark:bg-sky-900/30", "scale-[1.015]", "ring-2", "ring-sky-400/40");
+            }, 2500);
+        }
+    };
+
+    const highlightResultText = (text, keyword) => {
+        if (!text) return "";
+        // Strip HTML tags from the search result preview text!
+        const cleanText = text.replace(/<[^>]*>/g, "");
+        if (!keyword.trim()) return cleanText;
+        const regex = new RegExp(`(${keyword.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, "gi");
+        const parts = cleanText.split(regex);
+        return parts.map((part, index) => 
+            part.toLowerCase() === keyword.toLowerCase() 
+                ? <span key={index} className="text-[#0068ff] font-bold">{part}</span> 
+                : part
+        );
+    };
+
+    const groupedMessages = groupMessagesByDate(messages);
     const pinnedMessages = messages.filter((m) => m.isPinned && !m.isRecalled);
     const latestPinned = pinnedMessages[pinnedMessages.length - 1];
 
@@ -221,34 +367,17 @@ const ChatContainer = () => {
             {/* Left Area: Main Chat Flow */}
             <div className="flex-1 flex flex-col overflow-hidden relative border-r border-base-300">
                 <ChatHeader 
-                    onToggleSearch={() => setIsSearchOpen(!isSearchOpen)}
+                    onToggleSearch={() => {
+                        setIsSearchOpen(!isSearchOpen);
+                        setIsSidebarOpen(false);
+                    }}
                     isSearchOpen={isSearchOpen}
-                    onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+                    onToggleSidebar={() => {
+                        setIsSidebarOpen(!isSidebarOpen);
+                        setIsSearchOpen(false);
+                    }}
                     isSidebarOpen={isSidebarOpen}
                 />
-
-                {/* Search Bar Input Panel */}
-                {isSearchOpen && (
-                    <div className="p-3 bg-base-200/50 border-b border-base-300 flex items-center gap-2 animate-fade-in z-10 backdrop-blur-sm shadow-sm">
-                        <Search className="size-4 text-base-content/50" />
-                        <input
-                            type="text"
-                            placeholder="Tìm kiếm tin nhắn..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="input input-sm flex-1 bg-base-100 border border-base-300 rounded focus:outline-none focus:border-primary text-xs"
-                            autoFocus
-                        />
-                        {searchQuery && (
-                            <button 
-                                onClick={() => setSearchQuery("")}
-                                className="btn btn-ghost btn-circle btn-xs text-base-content/50 hover:text-base-content bg-base-200"
-                            >
-                                <X className="size-3" />
-                            </button>
-                        )}
-                    </div>
-                )}
 
                 {/* Pinned Message Banner */}
             {latestPinned && (
@@ -479,7 +608,7 @@ const ChatContainer = () => {
                                                         {message.text && (
                                                             <div className="flex flex-col gap-1.5">
                                                                 <p className="break-words text-sm whitespace-pre-wrap">
-                                                                    {renderFormattedText(message.text)}
+                                                                    {renderFormattedText(message.text, searchQuery)}
                                                                 </p>
                                                                 
                                                                 {/* Link Preview Card */}
@@ -616,13 +745,17 @@ const ChatContainer = () => {
             </div>
 
             {/* Block Action Banner or Message Input */}
-            {isBlocked ? (
+            {isIBlockedHim ? (
                 <div 
-                    onClick={() => setIsBlocked(false)}
+                    onClick={handleToggleBlock}
                     className="p-4 bg-red-50 border-t border-red-200 text-red-600 text-sm font-semibold flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-red-100 transition-colors select-none"
                 >
                     <span className="flex items-center gap-1.5"><Ban className="size-4" /> Bạn đã chặn tin nhắn từ người dùng này.</span>
                     <span className="text-[10px] font-normal text-red-500 underline">Bấm vào đây để bỏ chặn</span>
+                </div>
+            ) : isHeBlockedMe ? (
+                <div className="p-4 bg-gray-50 border-t border-gray-200 text-gray-500 text-sm font-semibold flex flex-col items-center justify-center gap-1 select-none">
+                    <span className="flex items-center gap-1.5"><Ban className="size-4 text-gray-400" /> Tài khoản này hiện không thể nhận tin nhắn.</span>
                 </div>
             ) : (
                 <MessageInput />
@@ -645,13 +778,13 @@ const ChatContainer = () => {
 
                     {/* User profile details block */}
                     <div className="p-6 flex flex-col items-center border-b border-base-300 text-center bg-base-50/10">
-                        <div className="avatar mb-3">
-                            <div className="size-16 rounded-full ring-2 ring-primary/20 ring-offset-2 relative">
+                        <div className="avatar mb-3 relative">
+                            <div className="size-16 rounded-full ring-2 ring-primary/20 ring-offset-2">
                                 <img src={selectedUser.profilePic || "/avatar.png"} alt={selectedUser.fullName} />
-                                {onlineUsers.includes(selectedUser._id) && (
-                                    <span className="absolute bottom-0.5 right-0.5 size-3.5 bg-green-500 rounded-full border-2 border-white"></span>
-                                )}
                             </div>
+                            {onlineUsers.includes(selectedUser._id) && (
+                                <span className="absolute bottom-0.5 right-0.5 size-3 bg-green-500 rounded-full z-10"></span>
+                            )}
                         </div>
                         <h4 className="font-bold text-base text-base-content flex items-center gap-1.5 justify-center">
                             {selectedUser.fullName}
@@ -690,15 +823,15 @@ const ChatContainer = () => {
 
                             {/* Block action */}
                             <button 
-                                onClick={() => setIsBlocked(!isBlocked)}
+                                onClick={handleToggleBlock}
                                 className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs gap-1.5 transition-colors ${
-                                    isBlocked 
+                                    isIBlockedHim 
                                         ? "bg-red-50 border-red-200 text-red-600 hover:bg-red-100" 
                                         : "bg-base-200/50 border-base-300 text-base-content/70 hover:bg-base-200"
                                 }`}
                             >
                                 <Ban className="size-4" />
-                                <span className="text-[10px] font-semibold leading-none">{isBlocked ? "Bỏ chặn" : "Chặn"}</span>
+                                <span className="text-[10px] font-semibold leading-none">{isIBlockedHim ? "Bỏ chặn" : "Chặn"}</span>
                             </button>
                         </div>
                     </div>
@@ -719,16 +852,26 @@ const ChatContainer = () => {
                             </div>
                             
                             {sharedImages.length > 0 ? (
-                                <div className="grid grid-cols-3 gap-1.5">
-                                    {sharedImages.slice(0, 9).map((msg, i) => (
-                                        <div 
-                                            key={i} 
-                                            onClick={() => setViewingImage(msg.image)}
-                                            className="aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200/60 cursor-zoom-in hover:opacity-90 transition-opacity"
+                                <div>
+                                    <div className="grid grid-cols-3 gap-1.5">
+                                        {(showAllSharedImages ? sharedImages : sharedImages.slice(0, 6)).map((msg, i) => (
+                                            <div 
+                                                key={i} 
+                                                onClick={() => setViewingImage(msg.image)}
+                                                className="aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200/60 cursor-zoom-in hover:opacity-90 transition-opacity"
+                                            >
+                                                <img src={msg.image} alt="Shared" className="w-full h-full object-cover" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {sharedImages.length > 6 && !showAllSharedImages && (
+                                        <button 
+                                            onClick={() => setShowAllSharedImages(true)}
+                                            className="w-full text-center py-1.5 text-[10px] font-semibold text-primary/80 hover:text-primary hover:bg-primary/5 rounded border border-dashed border-base-300 mt-2 transition-all animate-fade-in"
                                         >
-                                            <img src={msg.image} alt="Shared" className="w-full h-full object-cover" />
-                                        </div>
-                                    ))}
+                                            Xem thêm
+                                        </button>
+                                    )}
                                 </div>
                             ) : (
                                 <p className="text-[11px] text-base-content/40 italic p-2 border border-dashed border-base-300 rounded-lg text-center">
@@ -750,25 +893,35 @@ const ChatContainer = () => {
                             </div>
                             
                             {sharedFiles.length > 0 ? (
-                                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                                    {sharedFiles.map((msg, i) => (
-                                        <a 
-                                            key={i} 
-                                            href={msg.file.url} 
-                                            download={msg.file.name}
-                                            className="flex items-center gap-2 p-2 bg-base-200/50 hover:bg-base-200 border border-base-300 rounded-lg transition-colors select-none text-left"
+                                <div>
+                                    <div className="space-y-1.5 pr-1">
+                                        {(showAllSharedFiles ? sharedFiles : sharedFiles.slice(0, 3)).map((msg, i) => (
+                                            <a 
+                                                key={i} 
+                                                href={msg.file.url} 
+                                                download={msg.file.name}
+                                                className="flex items-center gap-2 p-2 bg-base-200/50 hover:bg-base-200 border border-base-300 rounded-lg transition-colors select-none text-left"
+                                            >
+                                                <div className="bg-primary/10 text-primary p-1.5 rounded flex-shrink-0">
+                                                    <FileText className="size-3.5" />
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-[10px] font-bold text-base-content truncate leading-tight">{msg.file.name}</p>
+                                                    <p className="text-[8px] text-base-content/50 leading-none mt-0.5">
+                                                        {msg.file.size ? `${(msg.file.size / 1024).toFixed(1)} KB` : "Tệp tin"}
+                                                    </p>
+                                                </div>
+                                            </a>
+                                        ))}
+                                    </div>
+                                    {sharedFiles.length > 3 && !showAllSharedFiles && (
+                                        <button 
+                                            onClick={() => setShowAllSharedFiles(true)}
+                                            className="w-full text-center py-1.5 text-[10px] font-semibold text-primary/80 hover:text-primary hover:bg-primary/5 rounded border border-dashed border-base-300 mt-2 transition-all animate-fade-in"
                                         >
-                                            <div className="bg-primary/10 text-primary p-1.5 rounded flex-shrink-0">
-                                                <FileText className="size-3.5" />
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                                <p className="text-[10px] font-bold text-base-content truncate leading-tight">{msg.file.name}</p>
-                                                <p className="text-[8px] text-base-content/50 leading-none mt-0.5">
-                                                    {msg.file.size ? `${(msg.file.size / 1024).toFixed(1)} KB` : "Tệp tin"}
-                                                </p>
-                                            </div>
-                                        </a>
-                                    ))}
+                                            Xem thêm
+                                        </button>
+                                    )}
                                 </div>
                             ) : (
                                 <p className="text-[11px] text-base-content/40 italic p-2 border border-dashed border-base-300 rounded-lg text-center">
@@ -790,29 +943,39 @@ const ChatContainer = () => {
                             </div>
                             
                             {sharedLinks.length > 0 ? (
-                                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                                    {sharedLinks.map((msg, i) => {
-                                        const url = msg.text.match(/(https?:\/\/[^\s]+)/gi)?.[0] || "#";
-                                        return (
-                                            <a 
-                                                key={i} 
-                                                href={url} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer"
-                                                className="flex items-center gap-2 p-2 bg-base-200/50 hover:bg-base-200 border border-base-300 rounded-lg transition-colors select-none text-left"
-                                            >
-                                                <div className="bg-blue-100 text-blue-600 p-1.5 rounded flex-shrink-0">
-                                                    <Globe className="size-3.5" />
-                                                </div>
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="text-[10px] font-bold text-blue-600 truncate leading-tight hover:underline">{url}</p>
-                                                    <p className="text-[8px] text-base-content/50 leading-none mt-0.5 truncate">
-                                                        {msg.text}
-                                                    </p>
-                                                </div>
-                                            </a>
-                                        );
-                                    })}
+                                <div>
+                                    <div className="space-y-1.5 pr-1">
+                                        {(showAllSharedLinks ? sharedLinks : sharedLinks.slice(0, 3)).map((msg, i) => {
+                                            const url = msg.text.match(/(https?:\/\/[^\s]+)/gi)?.[0] || "#";
+                                            return (
+                                                <a 
+                                                    key={i} 
+                                                    href={url} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    className="flex items-center gap-2 p-2 bg-base-200/50 hover:bg-base-200 border border-base-300 rounded-lg transition-colors select-none text-left"
+                                                >
+                                                    <div className="bg-blue-100 text-blue-600 p-1.5 rounded flex-shrink-0">
+                                                        <Globe className="size-3.5" />
+                                                    </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-[10px] font-bold text-blue-600 truncate leading-tight hover:underline">{url}</p>
+                                                        <p className="text-[8px] text-base-content/50 leading-none mt-0.5 truncate">
+                                                            {msg.text}
+                                                        </p>
+                                                    </div>
+                                                </a>
+                                            );
+                                        })}
+                                    </div>
+                                    {sharedLinks.length > 3 && !showAllSharedLinks && (
+                                        <button 
+                                            onClick={() => setShowAllSharedLinks(true)}
+                                            className="w-full text-center py-1.5 text-[10px] font-semibold text-primary/80 hover:text-primary hover:bg-primary/5 rounded border border-dashed border-base-300 mt-2 transition-all animate-fade-in"
+                                        >
+                                            Xem thêm
+                                        </button>
+                                    )}
                                 </div>
                             ) : (
                                 <p className="text-[11px] text-base-content/40 italic p-2 border border-dashed border-base-300 rounded-lg text-center">
@@ -826,15 +989,193 @@ const ChatContainer = () => {
                     <div className="p-4 border-t border-base-300 bg-base-200/20">
                         <button 
                             onClick={() => {
-                                if (window.confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch sử cuộc trò chuyện này không? Hành động này không thể hoàn tác.")) {
+                                if (window.confirm("Bạn có chắc chắn muốn xóa cuộc trò chuyện này? Hành động này sẽ xóa toàn bộ tin nhắn và ẩn cuộc trò chuyện khỏi danh sách.")) {
                                     clearMessages();
+                                    localStorage.setItem(`deleted_chat_${authUser._id}_${selectedUser._id}`, "true");
+                                    setSelectedUser(null);
                                 }
                             }}
                             className="btn btn-error btn-outline btn-sm w-full gap-2 text-xs flex items-center justify-center font-bold"
                         >
                             <Trash2 className="size-4" />
-                            <span>Xóa lịch sử trò chuyện</span>
+                            <span>Xóa cuộc trò chuyện</span>
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Zalo Search Right Sidebar Panel */}
+            {isSearchOpen && (
+                <div className="w-80 bg-base-100 flex-shrink-0 flex flex-col border-l border-base-300 overflow-hidden z-20 shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.05)] select-none animate-slide-left">
+                    {/* Header */}
+                    <div className="p-4 border-b border-base-300 flex items-center justify-between bg-base-200/50 sticky top-0 z-10 backdrop-blur-md">
+                        <h3 className="font-bold text-sm text-base-content flex items-center gap-1.5">
+                            <Search className="size-4 text-primary" /> Tìm kiếm tin nhắn
+                        </h3>
+                        <button 
+                            onClick={() => {
+                                setIsSearchOpen(false);
+                                setSearchQuery("");
+                                setShowAllTextResults(false);
+                                setShowAllFileResults(false);
+                            }}
+                            className="btn btn-ghost btn-circle btn-xs text-base-content/60 hover:text-base-content"
+                        >
+                            <X className="size-4" />
+                        </button>
+                    </div>
+
+                    {/* Search Input Box */}
+                    <div className="p-4 border-b border-base-300 bg-base-50/20 space-y-3">
+                        <div className="relative flex items-center">
+                            <Search className="size-4 absolute left-3 text-base-content/40" />
+                            <input
+                                type="text"
+                                placeholder="Nhập từ khóa tìm kiếm..."
+                                value={searchQuery}
+                                onChange={(e) => {
+                                    setSearchQuery(e.target.value);
+                                    setShowAllTextResults(false);
+                                    setShowAllFileResults(false);
+                                }}
+                                className="input input-sm w-full pl-9 pr-8 bg-base-100 border border-base-300 rounded focus:outline-none focus:border-primary text-xs font-medium text-slate-800"
+                                autoFocus
+                            />
+                            {searchQuery && (
+                                <button 
+                                    onClick={() => {
+                                        setSearchQuery("");
+                                        setShowAllTextResults(false);
+                                        setShowAllFileResults(false);
+                                    }}
+                                    className="absolute right-2.5 text-base-content/50 hover:text-base-content"
+                                >
+                                    <X className="size-3.5" />
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Filter by: Sender / Date (Mock dropdown style) */}
+                        <div className="flex items-center gap-1.5 text-[11px] text-base-content/70">
+                            <span>Lọc theo:</span>
+                            <div className="dropdown dropdown-bottom">
+                                <label tabIndex={0} className="flex items-center gap-1 bg-base-200 border border-base-300/80 px-2.5 py-0.5 rounded cursor-pointer hover:bg-base-300 transition-colors font-medium text-[10px]">
+                                    <Calendar className="size-3 text-base-content/60" /> Ngày gửi <ChevronDown className="size-3" />
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Search Results list */}
+                    <div className="flex-1 overflow-y-auto bg-base-50/10">
+                        {searchQuery.trim() === "" ? (
+                            <div className="text-center py-12 text-base-content/40 text-xs italic px-6">
+                                Nhập từ khóa để tìm kiếm tin nhắn trong cuộc trò chuyện này
+                            </div>
+                        ) : (textResults.length === 0 && fileResults.length === 0) ? (
+                            <div className="text-center py-12 text-base-content/40 text-xs italic px-6">
+                                Không tìm thấy kết quả nào khớp với "{searchQuery}"
+                            </div>
+                        ) : (
+                            <div className="p-3 space-y-6">
+                                {/* SECTION 1: Tin nhắn */}
+                                {textResults.length > 0 && (
+                                    <div>
+                                        <p className="text-[10px] font-bold text-base-content/50 uppercase tracking-wider px-1.5 pb-2 border-b border-base-200/85 mb-1">
+                                            Tin nhắn ({textResults.length})
+                                        </p>
+                                        <div className="divide-y divide-base-200/50">
+                                            {(showAllTextResults ? textResults : textResults.slice(0, 4)).map((msg) => {
+                                                const isMe = msg.senderId === authUser._id;
+                                                const senderName = isMe ? "Bạn" : selectedUser.fullName;
+                                                const senderAvatar = isMe ? authUser.profilePic : selectedUser.profilePic;
+                                                
+                                                return (
+                                                    <div 
+                                                        key={msg._id}
+                                                        onClick={() => handleJumpToMessage(msg._id)}
+                                                        className="flex gap-2.5 py-3 px-1.5 hover:bg-primary/5 cursor-pointer transition-colors text-left group"
+                                                    >
+                                                        <div className="size-8 rounded-full overflow-hidden border border-base-200/80 flex-shrink-0">
+                                                            <img src={senderAvatar || "/avatar.png"} alt="avatar" className="w-full h-full object-cover" />
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="font-bold text-xs text-base-content/90 truncate max-w-[120px]">{senderName}</span>
+                                                                <span className="text-[9px] text-base-content/40 flex-shrink-0">{formatMessageDateShort(msg.createdAt)}</span>
+                                                            </div>
+                                                            <p className="text-[11px] text-base-content/75 mt-1 leading-relaxed break-words font-medium group-hover:text-base-content transition-colors">
+                                                                {highlightResultText(msg.text || "", searchQuery)}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                        
+                                        {/* "Xem thêm" button for textResults */}
+                                        {textResults.length > 4 && !showAllTextResults && (
+                                            <button 
+                                                onClick={() => setShowAllTextResults(true)}
+                                                className="w-full text-center py-2 text-xs font-semibold text-primary/80 hover:text-primary hover:bg-primary/5 rounded-lg border border-dashed border-base-300 mt-2 transition-all"
+                                            >
+                                                Xem thêm
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* SECTION 2: Tệp tin (File) */}
+                                {fileResults.length > 0 && (
+                                    <div>
+                                        <p className="text-[10px] font-bold text-base-content/50 uppercase tracking-wider px-1.5 pb-2 border-b border-base-200/85 mb-2.5">
+                                            File ({fileResults.length})
+                                        </p>
+                                        <div className="space-y-2">
+                                            {(showAllFileResults ? fileResults : fileResults.slice(0, 4)).map((msg) => {
+                                                const isMe = msg.senderId === authUser._id;
+                                                const senderName = isMe ? "Bạn" : selectedUser.fullName;
+                                                const fileStyle = getFileColorAndIcon(msg.file.name);
+                                                
+                                                return (
+                                                    <div 
+                                                        key={msg._id}
+                                                        onClick={() => handleJumpToMessage(msg._id)}
+                                                        className="flex items-center gap-3 p-2.5 hover:bg-primary/5 rounded-xl border border-base-200/60 cursor-pointer transition-all text-left bg-base-100 shadow-sm hover:shadow group"
+                                                    >
+                                                        {/* Styled File icon badge */}
+                                                        <div className={`${fileStyle.bg} border p-2 rounded-lg flex-shrink-0 transition-transform group-hover:scale-105`}>
+                                                            {fileStyle.icon}
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="text-xs font-bold text-slate-800 truncate leading-tight group-hover:text-primary transition-colors">
+                                                                {highlightResultText(msg.file.name, searchQuery)}
+                                                            </p>
+                                                            <p className="text-[10px] text-slate-500 leading-none mt-1.5 font-medium">
+                                                                {formatFileSize(msg.file.size)} - {senderName}
+                                                            </p>
+                                                        </div>
+                                                        <div className="text-[9px] text-base-content/40 flex-shrink-0 align-self-start pt-0.5">
+                                                            {formatMessageDateShort(msg.createdAt)}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        {/* "Xem thêm" button for fileResults */}
+                                        {fileResults.length > 4 && !showAllFileResults && (
+                                            <button 
+                                                onClick={() => setShowAllFileResults(true)}
+                                                className="w-full text-center py-2 text-xs font-semibold text-primary/80 hover:text-primary hover:bg-primary/5 rounded-lg border border-dashed border-base-300 mt-3 transition-all"
+                                            >
+                                                Xem thêm
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

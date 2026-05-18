@@ -10,6 +10,7 @@ export const useChatStore = create((set, get) => ({
     isUsersLoading: false,
     isMessagesLoading: false,
     replyingTo: null,
+    unreadCounts: JSON.parse(localStorage.getItem("unread_counts") || "{}"),
 
     setReplyingTo: (message) => set({ replyingTo: message }),
 
@@ -17,7 +18,15 @@ export const useChatStore = create((set, get) => ({
         set({ isUsersLoading: true });
         try {
             const res = await axiosInstance.get("/messages/users");
-            set({ users: res.data });
+            
+            // Sync unreadCounts dynamically from backend response database states
+            const counts = { ...get().unreadCounts };
+            res.data.forEach((user) => {
+                counts[user._id] = user.unreadCount || 0;
+            });
+            
+            set({ users: res.data, unreadCounts: counts });
+            localStorage.setItem("unread_counts", JSON.stringify(counts));
         } catch (error) {
             toast.error(error.response.data.message);
         } finally {
@@ -30,6 +39,14 @@ export const useChatStore = create((set, get) => ({
         try {
             const res = await axiosInstance.get(`/messages/${userId}`);
             set({ messages: res.data });
+            
+            // Clear unread counts for this user upon reading messages
+            const counts = { ...get().unreadCounts };
+            if (counts[userId]) {
+                delete counts[userId];
+                set({ unreadCounts: counts });
+                localStorage.setItem("unread_counts", JSON.stringify(counts));
+            }
             
             // Notify active chat socket
             const socket = useAuthStore.getState().socket;
@@ -45,15 +62,25 @@ export const useChatStore = create((set, get) => ({
     },
 
     sendMessage: async (messageData) => {
-        const { selectedUser, messages, replyingTo } = get();
+        const { selectedUser, messages, replyingTo, users } = get();
         try {
             const res = await axiosInstance.post(`/messages/send/${selectedUser._id}`, {
                 ...messageData,
                 replyTo: replyingTo?._id || null
             });
+
+            // Real-time update lastMessage in sidebar list immediately on send
+            const updatedUsers = users.map((u) => {
+                if (u._id === selectedUser._id) {
+                    return { ...u, lastMessage: res.data };
+                }
+                return u;
+            });
+
             set({ 
                 messages: [...messages, res.data],
-                replyingTo: null
+                replyingTo: null,
+                users: updatedUsers
             });
         } catch (error) {
             toast.error(error.response.data.message);
@@ -180,9 +207,65 @@ export const useChatStore = create((set, get) => ({
         }
     },
 
+    initializeSocketListener: (socket) => {
+        if (!socket) return;
+        // Clean any existing listener to prevent double triggers
+        socket.off("globalNewMessage");
+        socket.off("blockStateChanged");
+        
+        socket.on("newMessage", (newMessage) => {
+            const { selectedUser, users } = get();
+            const senderId = newMessage.senderId;
+            
+            // Real-time update lastMessage in sidebar list immediately on receive
+            const updatedUsers = users.map((u) => {
+                if (u._id === senderId || u._id === newMessage.receiverId) {
+                    return { ...u, lastMessage: newMessage };
+                }
+                return u;
+            });
+
+            set({ users: updatedUsers });
+
+            // Increment unread count only if we are not actively in their conversation
+            if (!selectedUser || selectedUser._id !== senderId) {
+                const counts = { ...get().unreadCounts };
+                counts[senderId] = (counts[senderId] || 0) + 1;
+                set({ unreadCounts: counts });
+                localStorage.setItem("unread_counts", JSON.stringify(counts));
+                
+                // Play simple notification chime if available
+                try {
+                    const audio = new Audio("/notification.mp3");
+                    audio.volume = 0.4;
+                    audio.play().catch(() => {});
+                } catch (e) {}
+            }
+        });
+
+        socket.on("blockStateChanged", ({ blockerId, isBlocked }) => {
+            const myId = useAuthStore.getState().authUser?._id;
+            if (myId) {
+                if (isBlocked) {
+                    localStorage.setItem(`block_${blockerId}_${myId}`, "true");
+                } else {
+                    localStorage.removeItem(`block_${blockerId}_${myId}`);
+                }
+            }
+        });
+    },
+
     setSelectedUser: (selectedUser) => {
         set({ selectedUser });
         if (selectedUser) {
+            // Clear unread counts for this user!
+            const counts = { ...get().unreadCounts };
+            if (counts[selectedUser._id]) {
+                delete counts[selectedUser._id];
+                set({ unreadCounts: counts });
+                localStorage.setItem("unread_counts", JSON.stringify(counts));
+            }
+
             const socket = useAuthStore.getState().socket;
             const authUser = useAuthStore.getState().authUser;
             if (socket && authUser) {

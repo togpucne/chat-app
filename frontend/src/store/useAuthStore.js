@@ -90,6 +90,11 @@ export const useAuthStore = create((set, get) => ({
 
         set({ socket: socket });
 
+        // Lazy load useChatStore dynamically to prevent circular dependencies
+        import("./useChatStore").then(({ useChatStore }) => {
+            useChatStore.getState().initializeSocketListener?.(socket);
+        }).catch(err => console.error(err));
+
         socket.on("getOnlineUsers", (userIds) => {
             set({ onlineUsers: userIds });
         });

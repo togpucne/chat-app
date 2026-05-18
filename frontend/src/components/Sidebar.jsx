@@ -4,16 +4,86 @@ import { useAuthStore } from "../store/useAuthStore";
 import SidebarSkeleton from "./skeletons/SidebarSkeleton";
 import { Users } from "lucide-react";
 
+const formatMessageTime = (createdAt) => {
+    if (!createdAt) return "";
+    const date = new Date(createdAt);
+    const now = new Date();
+    
+    const dateZero = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const nowZero = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    const diffMs = nowZero.getTime() - dateZero.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+        const hours = date.getHours().toString().padStart(2, "0");
+        const minutes = date.getMinutes().toString().padStart(2, "0");
+        return `${hours}:${minutes}`;
+    }
+    if (diffDays === 1) {
+        return "Hôm qua";
+    }
+    if (diffDays < 7) {
+        return `${diffDays} ngày`;
+    }
+    return `${date.getDate()} thg ${date.getMonth() + 1}`;
+};
+
+const formatLastActive = (updatedAt, isOnline) => {
+    if (isOnline) return "Vừa truy cập";
+    if (!updatedAt) return "offline";
+    
+    const diffMs = Date.now() - new Date(updatedAt).getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffMins < 1) return "Vừa mới truy cập";
+    if (diffMins < 60) return `${diffMins} phút trước`;
+    if (diffHours < 24) return `${diffHours} giờ trước`;
+    if (diffDays < 30) return `${diffDays} ngày trước`;
+    return "offline";
+};
+
+const formatLastActiveShort = (updatedAt, isOnline) => {
+    if (isOnline) return "";
+    if (!updatedAt) return "offline";
+    const diffMs = Date.now() - new Date(updatedAt).getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffMins < 1) return "vừa xong";
+    if (diffMins < 60) return `${diffMins} phút`;
+    if (diffHours < 24) return `${diffHours} giờ`;
+    if (diffDays < 30) return `${diffDays} ngày`;
+    return "offline";
+};
+
+const stripHtmlTags = (str) => {
+    if (!str) return "";
+    return str.replace(/<[^>]*>/g, "");
+};
+
+const getMessagePreview = (msg) => {
+    if (!msg) return "";
+    if (msg.isRecalled) return "Tin nhắn đã thu hồi";
+    if (msg.image) return "[Hình ảnh]";
+    if (msg.file && msg.file.url) return `[Tệp đính kèm] ${msg.file.name || ""}`;
+    return stripHtmlTags(msg.text || "");
+};
+
 const Sidebar = () => {
     const {
         getUsers,
         users,
         selectedUser,
         setSelectedUser,
-        isUsersLoading
+        isUsersLoading,
+        unreadCounts
     } = useChatStore();
 
-    const { onlineUsers } = useAuthStore();
+    const { onlineUsers, authUser } = useAuthStore();
     const [showOnlineOnly, setShowOnlineOnly] = useState(false);
 
 
@@ -21,7 +91,11 @@ const Sidebar = () => {
         getUsers();
     }, [getUsers]);
 
-    const filteredUsers = showOnlineOnly ? users.filter((user) => onlineUsers.includes(user._id)) : users;
+    const filteredUsers = (showOnlineOnly ? users.filter((user) => onlineUsers.includes(user._id)) : users)
+        .filter(user => {
+            if (!authUser) return true;
+            return localStorage.getItem(`deleted_chat_${authUser._id}_${user._id}`) !== "true";
+        });
 
     if (isUsersLoading) {
         return <SidebarSkeleton />;
@@ -76,19 +150,46 @@ const Sidebar = () => {
                             {/* Online Status */}
                             {onlineUsers.includes(user._id) && (
                                 <span
-                                    className="absolute bottom-0 right-0 size-3 bg-green-500 
-                       rounded-full ring-2 ring-zinc-900"
+                                    className="absolute bottom-0.5 right-0.5 size-3 bg-green-500 rounded-full z-10"
                                 />
+                            )}
+
+                            {/* Small screen unread badge (absolute top-right of avatar) */}
+                            {unreadCounts[user._id] > 0 && (
+                                <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-5 h-5 px-1 bg-red-500 text-white text-[10px] font-black rounded-full shadow-sm z-20 lg:hidden animate-pulse">
+                                    {unreadCounts[user._id] > 5 ? "5+" : unreadCounts[user._id]}
+                                </span>
                             )}
                         </div>
 
                         {/* User Info - only visible on larger screens */}
-                        <div className="hidden lg:block text-left min-w-0 flex-1">
-                            <div className="font-medium truncate">
-                                {user.fullName}
+                        <div className="hidden lg:flex items-center justify-between text-left min-w-0 flex-1">
+                            {/* Left Side: Name and Last Message Preview or Status */}
+                            <div className="min-w-0 flex-1">
+                                <div className="font-semibold text-sm text-base-content truncate">
+                                    {user.fullName}
+                                </div>
+                                <div className="text-xs text-zinc-400 truncate mt-0.5 max-w-[170px]">
+                                    {user.lastMessage ? (
+                                        getMessagePreview(user.lastMessage)
+                                    ) : (
+                                        formatLastActive(user.updatedAt, onlineUsers.includes(user._id))
+                                    )}
+                                </div>
                             </div>
-                            <div className="text-sm text-zinc-400">
-                                {onlineUsers.includes(user._id) ? "Online" : "Offline"}
+                            
+                            {/* Right Side: Message Time and Unread Badge */}
+                            <div className="flex flex-col items-end justify-between ml-2 h-10 select-none">
+                                <div className="text-[10px] text-zinc-400">
+                                    {formatLastActiveShort(user.updatedAt, onlineUsers.includes(user._id))}
+                                </div>
+                                {unreadCounts[user._id] > 0 ? (
+                                    <span className="flex items-center justify-center min-w-5 h-5 px-1.5 bg-red-500 text-white text-[10px] font-black rounded-full shadow-sm mr-2 animate-pulse">
+                                        {unreadCounts[user._id] > 5 ? "5+" : unreadCounts[user._id]}
+                                    </span>
+                                ) : (
+                                    <div className="h-5 w-5"></div>
+                                )}
                             </div>
                         </div>
                     </button>

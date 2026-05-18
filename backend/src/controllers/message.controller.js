@@ -8,8 +8,35 @@ export const getUsersForSidebar = async (req, res) => {
     const loggedInUserId = req.user._id;
     const filteredUsers = await User.find({
       _id: { $ne: loggedInUserId },
-    }).select("-password");
-    return res.status(200).json(filteredUsers);
+    }).select("-password").lean();
+
+    const usersWithMetadata = await Promise.all(
+      filteredUsers.map(async (user) => {
+        const lastMsg = await Message.findOne({
+          $or: [
+            { senderId: loggedInUserId, receiverId: user._id },
+            { senderId: user._id, receiverId: loggedInUserId },
+          ],
+        })
+        .sort({ createdAt: -1 })
+        .lean();
+
+        // Calculate unread count sent by this contact to the logged-in user
+        const unreadCount = await Message.countDocuments({
+          senderId: user._id,
+          receiverId: loggedInUserId,
+          isSeen: { $ne: true },
+        });
+
+        return {
+          ...user,
+          lastMessage: lastMsg || null,
+          unreadCount: unreadCount || 0,
+        };
+      })
+    );
+
+    return res.status(200).json(usersWithMetadata);
   } catch (error) {
     console.log("Lỗi lấy danh sách người dùng " + error.message);
     return res.status(500).json({ message: "Lỗi hệ thống" });
