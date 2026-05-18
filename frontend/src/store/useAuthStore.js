@@ -98,10 +98,80 @@ export const useAuthStore = create((set, get) => ({
         socket.on("getOnlineUsers", (userIds) => {
             set({ onlineUsers: userIds });
         });
+
+        socket.on("friendRequestReceived", (requester) => {
+            set(state => ({
+                authUser: state.authUser ? {
+                    ...state.authUser,
+                    friendRequests: [...(state.authUser.friendRequests || []), requester._id]
+                } : null
+            }));
+            toast.success(`${requester.fullName} đã gửi cho bạn lời mời kết bạn!`, { icon: "👋" });
+        });
+
+        socket.on("friendRequestAccepted", (friend) => {
+            set(state => ({
+                authUser: state.authUser ? {
+                    ...state.authUser,
+                    friends: [...(state.authUser.friends || []), friend._id],
+                    sentRequests: (state.authUser.sentRequests || []).filter(id => id !== friend._id)
+                } : null
+            }));
+            toast.success(`${friend.fullName} đã chấp nhận lời mời kết bạn!`, { icon: "🎉" });
+            import("./useChatStore").then(({ useChatStore }) => {
+                useChatStore.getState().getUsers();
+            });
+        });
     },
     disconnectSocket: () => {
         if (get().socket?.connected) get().socket.disconnect();
+    },
 
+    sendFriendRequest: async (targetId) => {
+        try {
+            const res = await axiosInstance.post(`/messages/friend-request/${targetId}`);
+            set(state => ({
+                authUser: state.authUser ? {
+                    ...state.authUser,
+                    sentRequests: res.data.sentRequests
+                } : null
+            }));
+            toast.success("Đã gửi lời mời kết bạn");
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Lỗi gửi kết bạn");
+        }
+    },
+    acceptFriendRequest: async (requesterId) => {
+        try {
+            const res = await axiosInstance.post(`/messages/accept-friend/${requesterId}`);
+            set(state => ({
+                authUser: state.authUser ? {
+                    ...state.authUser,
+                    friends: res.data.friends,
+                    friendRequests: res.data.friendRequests
+                } : null
+            }));
+            toast.success("Đã trở thành bạn bè");
+            import("./useChatStore").then(({ useChatStore }) => {
+                useChatStore.getState().getUsers();
+            });
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Lỗi đồng ý kết bạn");
+        }
+    },
+    rejectFriendRequest: async (requesterId) => {
+        try {
+            const res = await axiosInstance.post(`/messages/reject-friend/${requesterId}`);
+            set(state => ({
+                authUser: state.authUser ? {
+                    ...state.authUser,
+                    friendRequests: res.data.friendRequests
+                } : null
+            }));
+            toast.success("Đã từ chối lời mời");
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Lỗi từ chối kết bạn");
+        }
     }
 
 }));

@@ -20,27 +20,35 @@ const formatLastActive = (updatedAt, isOnline) => {
 
 const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOpen }) => {
     const { selectedUser, setSelectedUser } = useChatStore();
-    const { onlineUsers } = useAuthStore();
+    const { onlineUsers, authUser } = useAuthStore();
+    const isFriend = authUser?.friends?.includes(selectedUser._id);
 
     return (
         <div className="p-3 border-b border-base-300 bg-base-100/90 backdrop-blur-sm select-none">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     {/* Avatar */}
-                    <div className="avatar relative">
+                    <div className="avatar relative flex-shrink-0">
                         <div className="size-10 rounded-full">
                             <img src={selectedUser.profilePic || "/avatar.png"} alt={selectedUser.fullName} />
                         </div>
-                        {onlineUsers.includes(selectedUser._id) && (
-                            <span className="absolute bottom-0.5 right-0.5 size-2.5 bg-green-500 rounded-full z-10"></span>
+                        {isFriend && onlineUsers.includes(selectedUser._id) && (
+                            <span className="absolute bottom-0.5 right-0.5 size-2.5 bg-green-500 rounded-full z-10 ring-2 ring-white"></span>
                         )}
                     </div>
 
                     {/* User info */}
-                    <div>
-                        <h3 className="font-medium text-sm text-base-content">{selectedUser.fullName}</h3>
-                        <p className="text-xs text-base-content/50">
-                            {formatLastActive(selectedUser.updatedAt, onlineUsers.includes(selectedUser._id))}
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                            <h3 className="font-medium text-sm text-base-content truncate">{selectedUser.fullName}</h3>
+                            {!isFriend && (
+                                <span className="bg-slate-200 text-slate-700 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase flex-shrink-0">Người lạ</span>
+                            )}
+                        </div>
+                        <p className="text-xs text-base-content/50 truncate">
+                            {isFriend 
+                                ? formatLastActive(selectedUser.updatedAt, onlineUsers.includes(selectedUser._id))
+                                : "Chưa kết bạn (Không chia sẻ trạng thái hoạt động)"}
                         </p>
                     </div>
                 </div>

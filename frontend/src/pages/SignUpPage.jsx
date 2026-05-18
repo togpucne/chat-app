@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuthStore } from "../store/useAuthStore.js";
-import { Eye, EyeOff, Loader2, Lock, Mail, MessageSquare, User } from "lucide-react";
+import { Eye, EyeOff, Loader2, Lock, Mail, MessageSquare, User, Phone } from "lucide-react";
 import { Link } from "react-router-dom";
 import AuthImagePattern from "../components/AuthImagePattern";
 import toast from "react-hot-toast";
@@ -10,6 +10,7 @@ const SignUpPage = () => {
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
+    phoneNumber: "",
     password: "",
   });
 
@@ -24,6 +25,12 @@ const SignUpPage = () => {
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       return toast.error("Định dạng email không hợp lệ");
+    }
+    if (!formData.phoneNumber.trim()) {
+      return toast.error("Vui lòng nhập số điện thoại");
+    }
+    if (!/^0(3|5|7|8|9)\d{8}$/.test(formData.phoneNumber.trim())) {
+      return toast.error("Số điện thoại không hợp lệ (đúng 10 số, đầu số VN 03, 05, 07, 08, 09)");
     }
     if (formData.password.length < 6) {
       return toast.error("Mật khẩu phải có ít nhất 6 ký tự");
@@ -93,6 +100,28 @@ const SignUpPage = () => {
                 />
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Mail className="size-5 text-base-content/40" />
+                </div>
+              </div>
+            </div>
+
+            <div className="form-control">
+              <label className="label">
+                <span className="label-text font-medium">Số điện thoại</span>
+              </label>
+
+              <div className="relative">
+                <input
+                  type="text"
+                  className="input input-bordered w-full pl-10"
+                  placeholder="0343635668"
+                  value={formData.phoneNumber}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    phoneNumber: e.target.value
+                  })}
+                />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Phone className="size-5 text-base-content/40" />
                 </div>
               </div>
             </div>

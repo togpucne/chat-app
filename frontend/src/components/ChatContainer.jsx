@@ -5,7 +5,7 @@ import MessageInput from "./MessageInput";
 import MessagesSkeleton from "./skeletons/MessagesSkeleton";
 import { useAuthStore } from "../store/useAuthStore";
 import { formatMessageTime } from "../lib/utils";
-import { MoreVertical, Pin, X, Paperclip, RotateCcw, RotateCw, Download, Search, Trash2, Ban, Bell, BellOff, Link2, FileText, Image, Globe, Check, Calendar, ChevronDown, Reply, Copy, Share2, RefreshCw, Target, CheckSquare } from "lucide-react";
+import { MoreVertical, Pin, X, Paperclip, RotateCcw, RotateCw, Download, Search, Trash2, Ban, Bell, BellOff, Link2, FileText, Image, Globe, Check, Calendar, ChevronDown, Reply, Copy, Share2, RefreshCw, Target, CheckSquare, UserPlus } from "lucide-react";
 
 // Kiểm tra 2 tin nhắn có được gửi ở 2 ngày khác nhau hay không
 const isDifferentDay = (msg1, msg2) => {
@@ -126,7 +126,7 @@ const renderFormattedText = (text, searchQuery = "") => {
 
 const ChatContainer = () => {
     const { messages, getMessages, isMessagesLoading, selectedUser, subscribeToMessages, unsubscribeFromMessages, deleteMessage, setReplyingTo, pinMessage, reactMessage, clearMessages, users, forwardMessages } = useChatStore();
-    const { authUser, onlineUsers } = useAuthStore();
+    const { authUser, onlineUsers, sendFriendRequest, acceptFriendRequest, rejectFriendRequest } = useAuthStore();
     const messageEndRef = useRef(null);
 
     const [viewingImage, setViewingImage] = useState(null);
@@ -473,6 +473,10 @@ const ChatContainer = () => {
     const pinnedMessages = messages.filter((m) => m.isPinned && !m.isRecalled);
     const latestPinned = pinnedMessages[pinnedMessages.length - 1];
 
+    const isFriend = authUser?.friends?.includes(selectedUser?._id);
+    const hasSentRequest = authUser?.sentRequests?.includes(selectedUser?._id);
+    const hasReceivedRequest = authUser?.friendRequests?.includes(selectedUser?._id);
+
     return (
         <div className="flex-1 flex overflow-hidden bg-base-100">
             {/* Left Area: Main Chat Flow */}
@@ -489,6 +493,50 @@ const ChatContainer = () => {
                     }}
                     isSidebarOpen={isSidebarOpen}
                 />
+
+                {/* Stranger Banner for Friend Requests */}
+                {!isFriend && selectedUser && (
+                    <div className="bg-amber-50/95 backdrop-blur border-b border-amber-200 p-3 flex items-center justify-between text-xs shadow-sm z-20 select-none animate-fade-in">
+                        <div className="flex items-center gap-2 font-medium text-amber-900 min-w-0">
+                            <UserPlus className="size-4 text-amber-700 flex-shrink-0" />
+                            <span className="truncate font-semibold">
+                                {hasReceivedRequest ? `${selectedUser.fullName} đã gửi lời mời kết bạn` : `Gửi yêu cầu kết bạn tới người này`}
+                            </span>
+                        </div>
+                        <div className="flex-shrink-0 ml-2">
+                            {hasReceivedRequest ? (
+                                <div className="flex items-center gap-1.5">
+                                    <button 
+                                        onClick={() => acceptFriendRequest(selectedUser._id)}
+                                        className="btn btn-primary btn-xs text-white font-bold px-3 shadow-sm"
+                                    >
+                                        Đồng ý
+                                    </button>
+                                    <button 
+                                        onClick={() => rejectFriendRequest(selectedUser._id)}
+                                        className="btn btn-ghost btn-xs text-slate-600 hover:bg-slate-200/60 font-bold px-2.5"
+                                    >
+                                        Từ chối
+                                    </button>
+                                </div>
+                            ) : hasSentRequest ? (
+                                <button 
+                                    disabled
+                                    className="btn btn-disabled btn-xs text-slate-500 font-bold px-3 border border-slate-200"
+                                >
+                                    Đã gửi lời mời
+                                </button>
+                            ) : (
+                                <button 
+                                    onClick={() => sendFriendRequest(selectedUser._id)}
+                                    className="btn btn-primary btn-xs text-white font-bold px-4 shadow-sm"
+                                >
+                                    Gửi kết bạn
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 {/* Pinned Message Banner */}
             {latestPinned && (
@@ -1016,6 +1064,7 @@ const ChatContainer = () => {
                                             localStorage.removeItem(`muted_${authUser._id}_${selectedUser._id}`);
                                         }
                                         setIsMuted(nextMuted);
+                                        window.dispatchEvent(new Event("conversationMutedChanged"));
                                     }
                                 }}
                                 className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs gap-1.5 transition-colors ${

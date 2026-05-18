@@ -3,9 +3,9 @@ import { generateToken } from "../lib/utils.js";
 import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 export const signup = async (req, res) => {
-  const { fullName, email, password } = req.body;
+  const { fullName, email, password, phoneNumber } = req.body;
   try {
-    if (!fullName || !email || !password) {
+    if (!fullName || !email || !password || !phoneNumber) {
       return res
         .status(400)
         .json({ message: "Vui lòng điền đầy đủ thông tin!" });
@@ -15,10 +15,18 @@ export const signup = async (req, res) => {
       return res.status(400).json({ message: "Mật khẩu phải hơn 6 kí tự!" });
     }
 
-    const user = await User.findOne({ email });
+    if (!/^0(3|5|7|8|9)\d{8}$/.test(phoneNumber)) {
+      return res.status(400).json({ message: "Số điện thoại không hợp lệ (phải đủ 10 số và thuộc đầu số Việt Nam 03, 05, 07, 08, 09)" });
+    }
 
-    if (user) {
+    const existingUserEmail = await User.findOne({ email });
+    if (existingUserEmail) {
       return res.status(400).json({ message: "Email đã được đăng ký." });
+    }
+
+    const existingUserPhone = await User.findOne({ phoneNumber });
+    if (existingUserPhone) {
+      return res.status(400).json({ message: "Số điện thoại đã được đăng ký." });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -28,6 +36,10 @@ export const signup = async (req, res) => {
       fullName: fullName,
       email: email,
       password: hashPassword,
+      phoneNumber: phoneNumber,
+      friends: [],
+      friendRequests: [],
+      sentRequests: []
     });
 
     if (newUser) {
@@ -38,6 +50,10 @@ export const signup = async (req, res) => {
         fullName: newUser.fullName,
         email: newUser.email,
         profilePic: newUser.profilePic,
+        phoneNumber: newUser.phoneNumber,
+        friends: newUser.friends,
+        friendRequests: newUser.friendRequests,
+        sentRequests: newUser.sentRequests,
       });
     } else {
       return res.status(400).json({ message: "Dữ liệu không đúng" });
@@ -71,6 +87,10 @@ export const login = async (req, res) => {
       fullName: user.fullName,
       email: user.email,
       profilePic: user.profilePic,
+      phoneNumber: user.phoneNumber,
+      friends: user.friends || [],
+      friendRequests: user.friendRequests || [],
+      sentRequests: user.sentRequests || [],
     });
 
   } catch (error) {

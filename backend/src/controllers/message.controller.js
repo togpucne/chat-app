@@ -6,8 +6,20 @@ import { getReceiverSocketId, io, activeChats } from "../lib/socket.js";
 export const getUsersForSidebar = async (req, res) => {
   try {
     const loggedInUserId = req.user._id;
+    const currentUser = await User.findById(loggedInUserId);
+    const friendIds = currentUser.friends || [];
+
+    const messageHistory1 = await Message.distinct("senderId", { receiverId: loggedInUserId });
+    const messageHistory2 = await Message.distinct("receiverId", { senderId: loggedInUserId });
+    
+    const relevantUserIds = [...new Set([
+      ...friendIds.map(id => id.toString()), 
+      ...messageHistory1.map(id => id.toString()), 
+      ...messageHistory2.map(id => id.toString())
+    ])].filter(id => id !== loggedInUserId.toString());
+
     const filteredUsers = await User.find({
-      _id: { $ne: loggedInUserId },
+      _id: { $in: relevantUserIds },
     }).select("-password").lean();
 
     const usersWithMetadata = await Promise.all(
@@ -42,6 +54,111 @@ export const getUsersForSidebar = async (req, res) => {
     return res.status(500).json({ message: "Lỗi hệ thống" });
   }
 };
+
+export const searchByPhone = async (req, res) => {
+  try {
+    const { phone } = req.query;
+    const myId = req.user._id;
+    if (!phone) return res.status(400).json({ message: "Vui lòng nhập số điện thoại" });
+    
+    const user = await User.findOne({ phoneNumber: phone, _id: { $ne: myId } }).select("-password");
+    if (!user) return res.status(404).json({ message: "Không tìm thấy tài khoản với số điện thoại này" });
+    
+    return res.status(200).json(user);
+  } catch (error) {
+    console.log("Lỗi tìm kiếm số điện thoại: " + error.message);
+    return res.status(500).json({ message: "Lỗi hệ thống" });
+  }
+};
+
+export const sendFriendRequest = async (req, res) => {
+  try {
+    const { id: targetId } = req.params;
+    const myId = req.user._id;
+    
+    const targetUser = await User.findById(targetId);
+    const me = await User.findById(myId);
+    if (!targetUser || !me) return res.status(404).json({ message: "Không tìm thấy người dùng" });
+
+    if (me.friends?.includes(targetId)) return res.status(400).json({ message: "Đã là bạn bè" });
+    if (me.sentRequests?.includes(targetId)) return res.status(400).json({ message: "Đã gửi lời mời trước đó" });
+
+    if (!targetUser.friendRequests?.includes(myId)) targetUser.friendRequests.push(myId);
+    if (!me.sentRequests?.includes(targetId)) me.sentRequests.push(targetId);
+
+    await targetUser.save();
+    await me.save();
+
+    const receiverSocketId = getReceiverSocketId(targetId.toString());
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("friendRequestReceived", {
+        _id: me._id, fullName: me.fullName, profilePic: me.profilePic, phoneNumber: me.phoneNumber
+      });
+    }
+
+    return res.status(200).json({ success: true, sentRequests: me.sentRequests });
+  } catch (error) {
+    console.log("Lỗi gửi lời mời kết bạn: " + error.message);
+    return res.status(500).json({ message: "Lỗi hệ thống" });
+  }
+};
+
+export const acceptFriendRequest = async (req, res) => {
+  try {
+    const { id: requesterId } = req.params;
+    const myId = req.user._id;
+
+    const me = await User.findById(myId);
+    const requester = await User.findById(requesterId);
+    if (!me || !requester) return res.status(404).json({ message: "Không tìm thấy người dùng" });
+
+    me.friendRequests = me.friendRequests?.filter(id => id.toString() !== requesterId.toString()) || [];
+    requester.sentRequests = requester.sentRequests?.filter(id => id.toString() !== myId.toString()) || [];
+
+    if (!me.friends?.includes(requesterId)) me.friends.push(requesterId);
+    if (!requester.friends?.includes(myId)) requester.friends.push(myId);
+
+    await me.save();
+    await requester.save();
+
+    const requesterSocketId = getReceiverSocketId(requesterId.toString());
+    if (requesterSocketId) {
+      io.to(requesterSocketId).emit("friendRequestAccepted", {
+        _id: me._id, fullName: me.fullName, profilePic: me.profilePic, phoneNumber: me.phoneNumber
+      });
+    }
+
+    return res.status(200).json({ success: true, friends: me.friends, friendRequests: me.friendRequests });
+  } catch (error) {
+    console.log("Lỗi đồng ý kết bạn: " + error.message);
+    return res.status(500).json({ message: "Lỗi hệ thống" });
+  }
+};
+
+export const rejectFriendRequest = async (req, res) => {
+  try {
+    const { id: requesterId } = req.params;
+    const myId = req.user._id;
+
+    const me = await User.findById(myId);
+    const requester = await User.findById(requesterId);
+    if (!me || !requester) return res.status(404).json({ message: "Không tìm thấy người dùng" });
+
+    me.friendRequests = me.friendRequests?.filter(id => id.toString() !== requesterId.toString()) || [];
+    if (requester) {
+      requester.sentRequests = requester.sentRequests?.filter(id => id.toString() !== myId.toString()) || [];
+      await requester.save();
+    }
+
+    await me.save();
+
+    return res.status(200).json({ success: true, friendRequests: me.friendRequests });
+  } catch (error) {
+    console.log("Lỗi từ chối kết bạn: " + error.message);
+    return res.status(500).json({ message: "Lỗi hệ thống" });
+  }
+};
+
 
 export const getMessages = async (req, res) => {
   try {
