@@ -1,3 +1,12 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Styles for contenteditable divs acting as rich inputs */
+[contenteditable]:empty:before {
+    content: attr(placeholder);
+    color: hsl(var(--bc) / 0.4);
+    cursor: text;
+    pointer-events: none;
+    display: block;
+}

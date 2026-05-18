@@ -37,6 +37,11 @@ const messageSchema = new mongoose.Schema(
             type: Boolean,
             default: false,
         },
+        file: {
+            url: { type: String, default: null },
+            name: { type: String, default: null },
+            size: { type: Number, default: null }
+        }
     },
     {
         timestamps: true,

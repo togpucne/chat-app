@@ -5,7 +5,7 @@ import MessageInput from "./MessageInput";
 import MessagesSkeleton from "./skeletons/MessagesSkeleton";
 import { useAuthStore } from "../store/useAuthStore";
 import { formatMessageTime } from "../lib/utils";
-import { MoreVertical, Pin, X } from "lucide-react";
+import { MoreVertical, Pin, X, Paperclip } from "lucide-react";
 
 // Kiểm tra 2 tin nhắn có được gửi ở 2 ngày khác nhau hay không
 const isDifferentDay = (msg1, msg2) => {
@@ -51,6 +51,57 @@ const formatDateHeader = (dateString) => {
     const mm = String(date.getMonth() + 1).padStart(2, '0');
     const yyyy = date.getFullYear();
     return `${dayName} ${dd}/${mm}/${yyyy}`;
+};
+
+// Trích xuất và định dạng chữ đậm/nghiêng/gạch ngang/code hỗ trợ cả HTML từ contenteditable và Markdown cũ
+const renderFormattedText = (text) => {
+    if (!text) return "";
+    
+    // TRƯỜNG HỢP 1: Đây là văn bản Rich HTML được gửi từ ô contenteditable
+    // Ta tiến hành lọc bỏ tất cả các thẻ không an toàn (XSS protection) và chỉ giữ lại những thẻ định dạng cơ bản.
+    if (text.includes("<") && text.includes(">")) {
+        let sanitized = text;
+
+        // Xóa sạch tất cả các thuộc tính nguy hiểm như onload, style, onerror, v.v.
+        sanitized = sanitized.replace(/<([a-z0-9]+)\b[^>]*>/gi, (match, tag) => {
+            const allowedTags = ["strong", "b", "em", "i", "del", "strike", "code", "br", "span", "div", "p"];
+            if (allowedTags.includes(tag.toLowerCase())) {
+                return `<${tag.toLowerCase()}>`;
+            }
+            return "";
+        });
+
+        // Xóa hoàn toàn các tag không được phép (như script, iframe, img, v.v.)
+        sanitized = sanitized.replace(/<(?!(\/?(strong|b|em|i|del|strike|code|br|span|div|p)\b))[^>]+>/gi, "");
+
+        return <span dangerouslySetInnerHTML={{ __html: sanitized }} />;
+    }
+
+    // TRƯỜNG HỢP 2: Đây là tin nhắn Markdown thô dạng cũ (để giữ tính tương thích ngược)
+    let escaped = text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+    // Định dạng Bold & Italic kép: ***text*** hoặc ___text___
+    escaped = escaped.replace(/\*\*\*(.*?)\*\*\*/g, "<strong><em>$1</em></strong>");
+    escaped = escaped.replace(/___(.*?)___/g, "<strong><em>$1</em></strong>");
+
+    // Định dạng Bold: **text** hoặc __text__
+    escaped = escaped.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+    escaped = escaped.replace(/__(.*?)__/g, "<strong>$1</strong>");
+
+    // Định dạng Italic: *text* hoặc _text_
+    escaped = escaped.replace(/\*(.*?)\*/g, "<em>$1</em>");
+    escaped = escaped.replace(/_(.*?)_/g, "<em>$1</em>");
+
+    // Định dạng Strikethrough: ~~text~~
+    escaped = escaped.replace(/~~(.*?)~~/g, "<del>$1</del>");
+
+    // Định dạng Inline code: `text`
+    escaped = escaped.replace(/`(.*?)`/g, "<code class='bg-base-300/85 px-1.5 py-0.5 rounded font-mono text-[11px] text-secondary-content'>$1</code>");
+
+    return <span dangerouslySetInnerHTML={{ __html: escaped }} />;
 };
 
 const ChatContainer = () => {
@@ -124,7 +175,9 @@ const ChatContainer = () => {
                         <div className="min-w-0">
                             <p className="font-semibold text-primary text-[11px] leading-tight">Tin nhắn ghim</p>
                             <p className="text-base-content/70 truncate text-[11px] max-w-[300px] sm:max-w-[500px] leading-tight mt-0.5">
-                                {latestPinned.image ? "[Hình ảnh] " : ""}{latestPinned.text || ""}
+                                {latestPinned.image ? "[Hình ảnh] " : ""}
+                                {latestPinned.file ? `[Tệp tin: ${latestPinned.file.name}] ` : ""}
+                                {latestPinned.text || ""}
                             </p>
                         </div>
                     </div>
@@ -251,7 +304,7 @@ const ChatContainer = () => {
                                                     <p className="text-base-content/60 truncate text-[10px] leading-tight">
                                                         {message.replyTo.isRecalled 
                                                             ? "Tin nhắn đã bị thu hồi" 
-                                                            : message.replyTo.image ? "[Hình ảnh]" : message.replyTo.text}
+                                                            : message.replyTo.image ? "[Hình ảnh]" : message.replyTo.file ? `[Tệp tin: ${message.replyTo.file.name}]` : message.replyTo.text}
                                                     </p>
                                                 </div>
                                             </div>
@@ -268,14 +321,39 @@ const ChatContainer = () => {
                                                         className="sm:max-w-[200px] rounded-md mb-2"
                                                     />
                                                 )}
-                                                {message.text && <p className="break-words">{message.text}</p>}
+
+                                                {/* Document download card */}
+                                                {message.file && message.file.url && (
+                                                    <a 
+                                                        href={message.file.url} 
+                                                        download={message.file.name}
+                                                        className="flex items-center gap-3 bg-base-200/90 hover:bg-base-300 text-base-content p-2.5 rounded-lg border border-base-300 transition-colors mt-1 mb-2 select-none max-w-[240px] text-left shadow-sm"
+                                                        title="Bấm để tải tệp về"
+                                                    >
+                                                        <div className="bg-primary/10 text-primary p-2 rounded flex-shrink-0">
+                                                            <Paperclip className="size-5" />
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="text-xs font-bold truncate leading-tight">{message.file.name}</p>
+                                                            <p className="text-[10px] text-base-content/60 leading-none mt-1">
+                                                                {message.file.size ? `${(message.file.size / 1024).toFixed(1)} KB` : "Tệp đính kèm"}
+                                                            </p>
+                                                        </div>
+                                                    </a>
+                                                )}
+
+                                                {message.text && (
+                                                    <p className="break-words text-sm whitespace-pre-wrap">
+                                                        {renderFormattedText(message.text)}
+                                                    </p>
+                                                )}
                                             </>
                                         )}
                                     </div>
 
                                     {/* Delete Menu for Received Messages (appears on the right of the bubble) */}
                                     {message.senderId !== authUser._id && !message.isRecalled && (
-                                        <div className="dropdown dropdown-top md:dropdown-right">
+                                        <div className="dropdown dropdown-top md:dropdown-left">
                                             <div tabIndex={0} role="button" className="btn btn-ghost btn-circle btn-xs opacity-0 group-hover:opacity-100 transition-opacity text-base-content/50 hover:text-base-content flex items-center justify-center">
                                                 <MoreVertical className="size-4" />
                                             </div>

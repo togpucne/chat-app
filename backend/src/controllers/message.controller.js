@@ -43,7 +43,7 @@ export const getMessages = async (req, res) => {
 
 export const sendMessage = async (req, res) => {
   try {
-    const { text, image, replyTo } = req.body;
+    const { text, image, replyTo, file } = req.body;
     const { id: receiverId } = req.params;
     const senderId = req.user._id;
 
@@ -58,6 +58,7 @@ export const sendMessage = async (req, res) => {
       text,
       image: imageUrl,
       replyTo: replyTo || null,
+      file: file || null,
     });
 
     await newMessage.save();
