@@ -105,7 +105,7 @@ const renderFormattedText = (text) => {
 };
 
 const ChatContainer = () => {
-    const { messages, getMessages, isMessagesLoading, selectedUser, subscribeToMessages, unsubscribeFromMessages, deleteMessage, setReplyingTo, pinMessage } = useChatStore();
+    const { messages, getMessages, isMessagesLoading, selectedUser, subscribeToMessages, unsubscribeFromMessages, deleteMessage, setReplyingTo, pinMessage, reactMessage } = useChatStore();
     const { authUser } = useAuthStore();
     const messageEndRef = useRef(null);
 
@@ -230,39 +230,66 @@ const ChatContainer = () => {
                                 {/* Transparent wrapper grid item to position bubble and dropdown side-by-side without clipping */}
                                 <div className="chat-bubble bg-transparent p-0 max-w-[85%] overflow-visible flex items-center gap-2 shadow-none before:hidden after:hidden">
                                     
-                                    {/* Recall & Delete Menu for Sent Messages (appears on the left of the bubble) */}
+                                    {/* Action block for sender: Hover reaction panel + dropdown */}
                                     {message.senderId === authUser._id && !message.isRecalled && (
-                                        <div className="dropdown dropdown-top md:dropdown-left">
-                                            <div tabIndex={0} role="button" className="btn btn-ghost btn-circle btn-xs opacity-0 group-hover:opacity-100 transition-opacity text-base-content/50 hover:text-base-content flex items-center justify-center">
-                                                <MoreVertical className="size-4" />
+                                        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                            {/* Quick Emoji Reaction Bar */}
+                                            <div className="flex items-center bg-white border border-slate-200/80 shadow-md rounded-full px-2 py-1 gap-1 select-none">
+                                                {["👍", "❤️", "😂", "😮", "😢", "😡"].map((emoji) => {
+                                                    const hasReacted = message.reactions?.some(
+                                                        (r) => r.userId.toString() === authUser._id.toString() && r.emoji === emoji
+                                                    );
+                                                    return (
+                                                        <button
+                                                            key={emoji}
+                                                            onClick={() => reactMessage(message._id, emoji)}
+                                                            className={`hover:scale-125 active:scale-95 transition-transform text-base p-0.5 rounded-full ${
+                                                                hasReacted ? "bg-blue-100 scale-110" : "hover:bg-slate-100"
+                                                            }`}
+                                                        >
+                                                            {emoji}
+                                                        </button>
+                                                    );
+                                                })}
                                             </div>
-                                            <ul tabIndex={0} className="dropdown-content z-[20] menu p-1 shadow-lg bg-base-200 border border-base-300 rounded-box w-36 text-xs text-base-content">
-                                                <li>
-                                                    <button onClick={() => setReplyingTo(message)} className="py-1.5 hover:bg-base-300 rounded-md">
-                                                        Trả lời
-                                                    </button>
-                                                </li>
-                                                <li>
-                                                    <button onClick={() => pinMessage(message._id)} className="py-1.5 hover:bg-base-300 rounded-md">
-                                                        {message.isPinned ? "Bỏ ghim" : "Ghim tin nhắn"}
-                                                    </button>
-                                                </li>
-                                                <li>
-                                                    <button onClick={() => deleteMessage(message._id, "me")} className="py-1.5 hover:bg-base-300 rounded-md">
-                                                        Xóa ở phía tôi
-                                                    </button>
-                                                </li>
-                                                <li>
-                                                    <button onClick={() => deleteMessage(message._id, "everyone")} className="py-1.5 text-error hover:bg-error/10 rounded-md">
-                                                        Thu hồi
-                                                    </button>
-                                                </li>
-                                            </ul>
+                                            
+                                            {/* Dropdown Options */}
+                                            <div className="dropdown dropdown-top dropdown-end">
+                                                <div tabIndex={0} role="button" className="btn btn-ghost btn-circle btn-xs text-base-content/50 hover:text-base-content flex items-center justify-center">
+                                                    <MoreVertical className="size-4" />
+                                                </div>
+                                                <ul tabIndex={0} className="dropdown-content z-[20] menu p-1 shadow-lg bg-base-200 border border-base-300 rounded-box w-36 text-xs text-base-content">
+                                                    <li>
+                                                        <button onClick={() => setReplyingTo(message)} className="py-1.5 hover:bg-base-300 rounded-md">
+                                                            Trả lời
+                                                        </button>
+                                                    </li>
+                                                    <li>
+                                                        <button onClick={() => pinMessage(message._id)} className="py-1.5 hover:bg-base-300 rounded-md">
+                                                            {message.isPinned ? "Bỏ ghim" : "Ghim tin nhắn"}
+                                                        </button>
+                                                    </li>
+                                                    <li>
+                                                        <button onClick={() => deleteMessage(message._id, "me")} className="py-1.5 hover:bg-base-300 rounded-md">
+                                                            Xóa ở phía tôi
+                                                        </button>
+                                                    </li>
+                                                    <li>
+                                                        <button onClick={() => deleteMessage(message._id, "everyone")} className="py-1.5 text-error hover:bg-error/10 rounded-md">
+                                                            Thu hồi
+                                                        </button>
+                                                    </li>
+                                                </ul>
+                                            </div>
                                         </div>
                                     )}
 
                                     {/* The Actual Visible Chat Bubble */}
-                                    <div className={`chat-bubble flex flex-col relative ${message.isRecalled ? "bg-base-300/40 text-base-content/40 italic" : ""} ${message.isPinned ? "border border-primary/40 shadow-sm" : ""}`}>
+                                    <div className={`flex flex-col relative py-2.5 px-4 rounded-2xl shadow-sm text-[14px] leading-relaxed max-w-full overflow-visible transition-all duration-200 ${
+                                        message.senderId === authUser._id 
+                                            ? "bg-[#e1f0ff] border border-[#cbe3ff] text-[#081c36] rounded-tr-none" 
+                                            : "bg-white border border-[#e4e6eb] text-[#1c1e21] rounded-tl-none"
+                                    } ${message.isRecalled ? "bg-base-200/50 text-base-content/40 italic border-slate-200 shadow-none" : ""} ${message.isPinned ? "border-primary/50 ring-1 ring-primary/20" : ""}`}>
                                         
                                         {/* Pinned mini status inside bubble */}
                                         {message.isPinned && (
@@ -272,21 +299,20 @@ const ChatContainer = () => {
                                             </div>
                                         )}
 
-                                        {/* Reply Context (rendered inside the bubble, above the text/image) */}
+                                        {/* Reply Context */}
                                         {message.replyTo && (
                                             <div 
                                                 onClick={() => {
                                                     const element = document.getElementById(`msg-${message.replyTo._id}`);
                                                     if (element) {
                                                         element.scrollIntoView({ behavior: "smooth", block: "center" });
-                                                        // Highlight the target element briefly
                                                         element.classList.add("bg-primary/25");
                                                         setTimeout(() => {
                                                             element.classList.remove("bg-primary/25");
                                                         }, 1500);
                                                     }
                                                 }}
-                                                className="cursor-pointer bg-base-200/50 hover:bg-base-200/80 transition-colors text-xs px-2.5 py-1.5 rounded border-l-4 border-primary/70 mb-1.5 opacity-85 flex items-center gap-2 max-w-[200px] text-base-content"
+                                                className="cursor-pointer bg-black/5 hover:bg-black/10 transition-colors text-xs px-2.5 py-1.5 rounded border-l-4 border-primary/70 mb-1.5 opacity-85 flex items-center gap-2 max-w-[200px]"
                                             >
                                                 {message.replyTo.image && (
                                                     <img 
@@ -301,7 +327,7 @@ const ChatContainer = () => {
                                                             ? "Chính mình" 
                                                             : message.replyTo.senderId?.fullName || "Người dùng"}
                                                     </p>
-                                                    <p className="text-base-content/60 truncate text-[10px] leading-tight">
+                                                    <p className="text-slate-600 truncate text-[10px] leading-tight">
                                                         {message.replyTo.isRecalled 
                                                             ? "Tin nhắn đã bị thu hồi" 
                                                             : message.replyTo.image ? "[Hình ảnh]" : message.replyTo.file ? `[Tệp tin: ${message.replyTo.file.name}]` : message.replyTo.text}
@@ -327,15 +353,15 @@ const ChatContainer = () => {
                                                     <a 
                                                         href={message.file.url} 
                                                         download={message.file.name}
-                                                        className="flex items-center gap-3 bg-base-200/90 hover:bg-base-300 text-base-content p-2.5 rounded-lg border border-base-300 transition-colors mt-1 mb-2 select-none max-w-[240px] text-left shadow-sm"
+                                                        className="flex items-center gap-3 bg-[#f0f2f5] hover:bg-[#e4e6eb] text-slate-800 p-2.5 rounded-lg border border-[#e4e6eb] transition-colors mt-1 mb-2 select-none max-w-[240px] text-left shadow-sm"
                                                         title="Bấm để tải tệp về"
                                                     >
                                                         <div className="bg-primary/10 text-primary p-2 rounded flex-shrink-0">
                                                             <Paperclip className="size-5" />
                                                         </div>
                                                         <div className="min-w-0 flex-1">
-                                                            <p className="text-xs font-bold truncate leading-tight">{message.file.name}</p>
-                                                            <p className="text-[10px] text-base-content/60 leading-none mt-1">
+                                                            <p className="text-xs font-bold truncate leading-tight text-slate-800">{message.file.name}</p>
+                                                            <p className="text-[10px] text-slate-500 leading-none mt-1">
                                                                 {message.file.size ? `${(message.file.size / 1024).toFixed(1)} KB` : "Tệp đính kèm"}
                                                             </p>
                                                         </div>
@@ -349,31 +375,68 @@ const ChatContainer = () => {
                                                 )}
                                             </>
                                         )}
+
+                                        {/* Distinct Emoji Reaction Pill */}
+                                        {message.reactions && message.reactions.length > 0 && (
+                                            <div className="absolute -bottom-2.5 right-3 flex items-center gap-0.5 bg-white border border-slate-200 shadow-sm rounded-full px-1.5 py-0.5 text-xs select-none z-[5]">
+                                                {Array.from(new Set(message.reactions.map(r => r.emoji))).map((emoji, idx) => (
+                                                    <span key={idx} className="text-xs">{emoji}</span>
+                                                ))}
+                                                {message.reactions.length > 1 && (
+                                                    <span className="text-[9px] font-bold text-slate-500 ml-0.5">
+                                                        {message.reactions.length}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
 
-                                    {/* Delete Menu for Received Messages (appears on the right of the bubble) */}
+                                    {/* Action block for receiver: Hover reaction panel + dropdown */}
                                     {message.senderId !== authUser._id && !message.isRecalled && (
-                                        <div className="dropdown dropdown-top md:dropdown-left">
-                                            <div tabIndex={0} role="button" className="btn btn-ghost btn-circle btn-xs opacity-0 group-hover:opacity-100 transition-opacity text-base-content/50 hover:text-base-content flex items-center justify-center">
-                                                <MoreVertical className="size-4" />
+                                        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                            {/* Dropdown Options */}
+                                            <div className="dropdown dropdown-top dropdown-start">
+                                                <div tabIndex={0} role="button" className="btn btn-ghost btn-circle btn-xs text-base-content/50 hover:text-base-content flex items-center justify-center">
+                                                    <MoreVertical className="size-4" />
+                                                </div>
+                                                <ul tabIndex={0} className="dropdown-content z-[20] menu p-1 shadow-lg bg-base-200 border border-base-300 rounded-box w-36 text-xs text-base-content">
+                                                    <li>
+                                                        <button onClick={() => setReplyingTo(message)} className="py-1.5 hover:bg-base-300 rounded-md">
+                                                            Trả lời
+                                                        </button>
+                                                    </li>
+                                                    <li>
+                                                        <button onClick={() => pinMessage(message._id)} className="py-1.5 hover:bg-base-300 rounded-md">
+                                                            {message.isPinned ? "Bỏ ghim" : "Ghim tin nhắn"}
+                                                        </button>
+                                                    </li>
+                                                    <li>
+                                                        <button onClick={() => deleteMessage(message._id, "me")} className="py-1.5 hover:bg-base-300 rounded-md">
+                                                            Xóa ở phía tôi
+                                                        </button>
+                                                    </li>
+                                                </ul>
                                             </div>
-                                            <ul tabIndex={0} className="dropdown-content z-[20] menu p-1 shadow-lg bg-base-200 border border-base-300 rounded-box w-36 text-xs text-base-content">
-                                                <li>
-                                                    <button onClick={() => setReplyingTo(message)} className="py-1.5 hover:bg-base-300 rounded-md">
-                                                        Trả lời
-                                                    </button>
-                                                </li>
-                                                <li>
-                                                    <button onClick={() => pinMessage(message._id)} className="py-1.5 hover:bg-base-300 rounded-md">
-                                                        {message.isPinned ? "Bỏ ghim" : "Ghim tin nhắn"}
-                                                    </button>
-                                                </li>
-                                                <li>
-                                                    <button onClick={() => deleteMessage(message._id, "me")} className="py-1.5 hover:bg-base-300 rounded-md">
-                                                        Xóa ở phía tôi
-                                                    </button>
-                                                </li>
-                                            </ul>
+
+                                            {/* Quick Emoji Reaction Bar */}
+                                            <div className="flex items-center bg-white border border-slate-200/80 shadow-md rounded-full px-2 py-1 gap-1 select-none">
+                                                {["👍", "❤️", "😂", "😮", "😢", "😡"].map((emoji) => {
+                                                    const hasReacted = message.reactions?.some(
+                                                        (r) => r.userId.toString() === authUser._id.toString() && r.emoji === emoji
+                                                    );
+                                                    return (
+                                                        <button
+                                                            key={emoji}
+                                                            onClick={() => reactMessage(message._id, emoji)}
+                                                            className={`hover:scale-125 active:scale-95 transition-transform text-base p-0.5 rounded-full ${
+                                                                hasReacted ? "bg-blue-100 scale-110" : "hover:bg-slate-100"
+                                                            }`}
+                                                        >
+                                                            {emoji}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
                                     )}
                                 </div>

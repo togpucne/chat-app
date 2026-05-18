@@ -2,8 +2,11 @@
 import { Link } from "react-router-dom";
 import { LogOut, MessageSquare, Settings, User } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore.js";
+import { useChatStore } from "../store/useChatStore.js";
+
 const Navbar = () => {
   const { logout, authUser } = useAuthStore();
+  const { setSelectedUser } = useChatStore();
 
   return (
     <header className="bg-base-100 border-b border-base-300 fixed w-full top-0 z-40 backdrop-blur-lg bg-base-100/80">
@@ -15,6 +18,7 @@ const Navbar = () => {
             <Link
               to="/"
               className="flex items-center gap-2.5 hover:opacity-80 transition-all"
+              onClick={() => setSelectedUser(null)}
             >
               <div className="flex items-center justify-center">
                 <img src="/logo_no_bg.png" alt="JudoChat Logo" className="size-9 object-contain" />

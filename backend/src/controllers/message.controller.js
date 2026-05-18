@@ -167,3 +167,57 @@ export const pinMessage = async (req, res) => {
     return res.status(500).json({ message: "Lỗi hệ thống" });
   }
 };
+
+export const reactMessage = async (req, res) => {
+  try {
+    const { id: messageId } = req.params;
+    const { emoji } = req.body;
+    const myId = req.user._id;
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ message: "Không tìm thấy tin nhắn" });
+    }
+
+    if (!message.reactions) {
+      message.reactions = [];
+    }
+
+    const existingReactionIndex = message.reactions.findIndex(
+      (r) => r.userId.toString() === myId.toString()
+    );
+
+    if (existingReactionIndex > -1) {
+      if (message.reactions[existingReactionIndex].emoji === emoji) {
+        message.reactions.splice(existingReactionIndex, 1);
+      } else {
+        message.reactions[existingReactionIndex].emoji = emoji;
+      }
+    } else {
+      message.reactions.push({ userId: myId, emoji });
+    }
+
+    await message.save();
+
+    const populatedMessage = await Message.findById(message._id).populate({
+      path: "replyTo",
+      select: "text image senderId isRecalled",
+      populate: {
+        path: "senderId",
+        select: "fullName"
+      }
+    });
+
+    const receiverId = message.senderId.toString() === myId.toString() ? message.receiverId : message.senderId;
+    const receiverSocketId = getReceiverSocketId(receiverId.toString());
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("messageReacted", populatedMessage);
+    }
+
+    return res.status(200).json(populatedMessage);
+  } catch (error) {
+    console.log("Lỗi thả cảm xúc tin nhắn: " + error.message);
+    return res.status(500).json({ message: "Lỗi hệ thống" });
+  }
+};
+

@@ -88,6 +88,19 @@ export const useChatStore = create((set, get) => ({
         }
     },
 
+    reactMessage: async (messageId, emoji) => {
+        try {
+            const res = await axiosInstance.post(`/messages/react/${messageId}`, { emoji });
+            set({
+                messages: get().messages.map((msg) =>
+                    msg._id === messageId ? res.data : msg
+                )
+            });
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Lỗi xử lý cảm xúc");
+        }
+    },
+
     subscribeToMessages: () => {
         const { selectedUser } = get();
         if (!selectedUser) return;
@@ -119,6 +132,14 @@ export const useChatStore = create((set, get) => ({
                 ),
             });
         });
+
+        socket.on("messageReacted", (updatedMessage) => {
+            set({
+                messages: get().messages.map((msg) =>
+                    msg._id === updatedMessage._id ? updatedMessage : msg
+                ),
+            });
+        });
     },
 
     unsubscribeFromMessages: () => {
@@ -127,8 +148,9 @@ export const useChatStore = create((set, get) => ({
             socket.off("newMessage");
             socket.off("messageRecalled");
             socket.off("messagePinned");
+            socket.off("messageReacted");
         }
     },
 
     setSelectedUser: (selectedUser) => set({ selectedUser }),
-})); 
+}));
