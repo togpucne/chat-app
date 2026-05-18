@@ -25,6 +25,7 @@ export const getMessages = async (req, res) => {
         { senderId: myId, receiverId: userToChatId },
         { senderId: userToChatId, receiverId: myId },
       ],
+      deletedBy: { $ne: myId } // Filter out messages deleted by the current user
     });
     res.status(200).json(messages);
   } catch (error) {
@@ -61,5 +62,50 @@ export const sendMessage = async (req, res) => {
   } catch (error) {
     console.log("Lỗi gửi tin nhắn!" + error.message);
     res.status(500).json({ message: "Lỗi hệ thống" });
+  }
+};
+
+export const deleteOrRecallMessage = async (req, res) => {
+  try {
+    const { id: messageId } = req.params;
+    const { action } = req.body; // action can be "me" or "everyone"
+    const myId = req.user._id;
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ message: "Không tìm thấy tin nhắn" });
+    }
+
+    if (action === "everyone") {
+      // Global Recall: Must be the sender of the message
+      if (message.senderId.toString() !== myId.toString()) {
+        return res.status(403).json({ message: "Bạn không có quyền thu hồi tin nhắn này" });
+      }
+      message.isRecalled = true;
+      message.text = "";
+      message.image = "";
+      await message.save();
+
+      // Notify the receiver in real time via Socket.io
+      const receiverId = message.receiverId.toString();
+      const receiverSocketId = getReceiverSocketId(receiverId);
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("messageRecalled", { messageId });
+      }
+
+      return res.status(200).json(message);
+    } else if (action === "me") {
+      // Personal Delete: Push user ID into deletedBy array
+      if (!message.deletedBy.includes(myId)) {
+        message.deletedBy.push(myId);
+        await message.save();
+      }
+      return res.status(200).json({ messageId, success: true });
+    } else {
+      return res.status(400).json({ message: "Hành động không hợp lệ" });
+    }
+  } catch (error) {
+    console.log("Lỗi xử lý xóa/thu hồi tin nhắn: " + error.message);
+    return res.status(500).json({ message: "Lỗi hệ thống" });
   }
 };
