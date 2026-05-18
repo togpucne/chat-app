@@ -8,14 +8,14 @@ const NoChatSelected = () => {
                 {/* Icon Display */}
                 <div className="flex justify-center gap-4 mb-4">
                     <div className="relative">
-                        <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center animate-bounce">
-                            <MessageSquare className="w-8 h-8 text-primary" />
+                        <div className="w-28 h-28 flex items-center justify-center animate-bounce">
+                            <img src="/logo_no_bg.png" alt="JudoChat Logo" className="w-28 h-28 object-contain" />
                         </div>
                     </div>
                 </div>
 
                 {/* Welcome Text */}
-                <h2 className="text-2xl font-bold">Chào mừng bạn đến với Chatty!</h2>
+                <h2 className="text-2xl font-bold">Chào mừng bạn đến với JudoChat!</h2>
 
                 <p className="text-base-content/60">
                     Chọn một cuộc trò chuyện từ thanh bên để bắt đầu trò chuyện
