@@ -128,3 +128,41 @@ export const deleteOrRecallMessage = async (req, res) => {
     return res.status(500).json({ message: "Lỗi hệ thống" });
   }
 };
+
+export const pinMessage = async (req, res) => {
+  try {
+    const { id: messageId } = req.params;
+    const myId = req.user._id;
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({ message: "Không tìm thấy tin nhắn" });
+    }
+
+    // Đảo ngược trạng thái ghim
+    message.isPinned = !message.isPinned;
+    await message.save();
+
+    // Nạp thông tin replyTo đầy đủ để gửi lại
+    const populatedMessage = await Message.findById(message._id).populate({
+      path: "replyTo",
+      select: "text image senderId isRecalled",
+      populate: {
+        path: "senderId",
+        select: "fullName"
+      }
+    });
+
+    // Xác định đối phương để gửi realtime socket
+    const receiverId = message.senderId.toString() === myId.toString() ? message.receiverId : message.senderId;
+    const receiverSocketId = getReceiverSocketId(receiverId.toString());
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("messagePinned", populatedMessage);
+    }
+
+    return res.status(200).json(populatedMessage);
+  } catch (error) {
+    console.log("Lỗi ghim tin nhắn: " + error.message);
+    return res.status(500).json({ message: "Lỗi hệ thống" });
+  }
+};

@@ -74,6 +74,20 @@ export const useChatStore = create((set, get) => ({
         }
     },
 
+    pinMessage: async (messageId) => {
+        try {
+            const res = await axiosInstance.post(`/messages/pin/${messageId}`);
+            set({
+                messages: get().messages.map((msg) =>
+                    msg._id === messageId ? res.data : msg
+                )
+            });
+            toast.success(res.data.isPinned ? "Ghim tin nhắn thành công" : "Bỏ ghim tin nhắn thành công");
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Lỗi xử lý ghim");
+        }
+    },
+
     subscribeToMessages: () => {
         const { selectedUser } = get();
         if (!selectedUser) return;
@@ -97,6 +111,14 @@ export const useChatStore = create((set, get) => ({
                 ),
             });
         });
+
+        socket.on("messagePinned", (updatedMessage) => {
+            set({
+                messages: get().messages.map((msg) =>
+                    msg._id === updatedMessage._id ? updatedMessage : msg
+                ),
+            });
+        });
     },
 
     unsubscribeFromMessages: () => {
@@ -104,6 +126,7 @@ export const useChatStore = create((set, get) => ({
         if (socket) {
             socket.off("newMessage");
             socket.off("messageRecalled");
+            socket.off("messagePinned");
         }
     },
 

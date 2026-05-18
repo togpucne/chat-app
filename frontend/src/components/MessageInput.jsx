@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useChatStore } from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
 import { Image, Send, X, Quote } from "lucide-react";
@@ -8,8 +8,16 @@ const MessageInput = () => {
     const [text, setText] = useState("");
     const [imagePreview, setImagePreview] = useState(null);
     const fileInputRef = useRef(null);
+    const inputRef = useRef(null);
     const { sendMessage, replyingTo, setReplyingTo, selectedUser } = useChatStore();
     const { authUser } = useAuthStore();
+
+    // Tự động focus vào ô nhập liệu khi nhấn "Trả lời"
+    useEffect(() => {
+        if (replyingTo && inputRef.current) {
+            inputRef.current.focus();
+        }
+    }, [replyingTo]);
 
     const handleImageChange = (e) => {
         const file = e.target.files[0];
@@ -115,6 +123,7 @@ const MessageInput = () => {
             <form onSubmit={handleSendMessage} className="flex items-center gap-2">
                 <div className="flex-1 flex gap-2">
                     <input
+                        ref={inputRef}
                         type="text"
                         className="w-full input input-bordered rounded-lg input-sm sm:input-md"
                         placeholder="Nhập tin nhắn..."

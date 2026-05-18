@@ -5,7 +5,7 @@ import MessageInput from "./MessageInput";
 import MessagesSkeleton from "./skeletons/MessagesSkeleton";
 import { useAuthStore } from "../store/useAuthStore";
 import { formatMessageTime } from "../lib/utils";
-import { MoreVertical } from "lucide-react";
+import { MoreVertical, Pin, X } from "lucide-react";
 
 // Kiểm tra 2 tin nhắn có được gửi ở 2 ngày khác nhau hay không
 const isDifferentDay = (msg1, msg2) => {
@@ -19,9 +19,32 @@ const isDifferentDay = (msg1, msg2) => {
     );
 };
 
-// Định dạng ngày hiển thị ở giữa đoạn chat (Ví dụ: T5 14/05/2026)
+// Định dạng ngày hiển thị ở giữa đoạn chat (Ví dụ: Hôm nay, Hôm qua, T5 14/05/2026)
 const formatDateHeader = (dateString) => {
     const date = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+
+    // Kiểm tra xem có phải là hôm nay
+    const isToday =
+        date.getDate() === today.getDate() &&
+        date.getMonth() === today.getMonth() &&
+        date.getFullYear() === today.getFullYear();
+
+    // Kiểm tra xem có phải là hôm qua
+    const isYesterday =
+        date.getDate() === yesterday.getDate() &&
+        date.getMonth() === yesterday.getMonth() &&
+        date.getFullYear() === yesterday.getFullYear();
+
+    if (isToday) {
+        return "Hôm nay";
+    }
+    if (isYesterday) {
+        return "Hôm qua";
+    }
+
     const days = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
     const dayName = days[date.getDay()];
     const dd = String(date.getDate()).padStart(2, '0');
@@ -31,7 +54,7 @@ const formatDateHeader = (dateString) => {
 };
 
 const ChatContainer = () => {
-    const { messages, getMessages, isMessagesLoading, selectedUser, subscribeToMessages, unsubscribeFromMessages, deleteMessage, setReplyingTo } = useChatStore();
+    const { messages, getMessages, isMessagesLoading, selectedUser, subscribeToMessages, unsubscribeFromMessages, deleteMessage, setReplyingTo, pinMessage } = useChatStore();
     const { authUser } = useAuthStore();
     const messageEndRef = useRef(null);
 
@@ -60,25 +83,76 @@ const ChatContainer = () => {
         );
     }
 
+    // Nhóm tin nhắn theo ngày để làm sticky date headers
+    const groupMessagesByDate = (msgs) => {
+        const groups = {};
+        msgs.forEach((msg) => {
+            const dateKey = formatDateHeader(msg.createdAt);
+            if (!groups[dateKey]) {
+                groups[dateKey] = [];
+            }
+            groups[dateKey].push(msg);
+        });
+        return groups;
+    };
+
+    const groupedMessages = groupMessagesByDate(messages);
+    const pinnedMessages = messages.filter((m) => m.isPinned && !m.isRecalled);
+    const latestPinned = pinnedMessages[pinnedMessages.length - 1];
+
     return (
-        <div className="flex-1 flex flex-col overflow-auto">
+        <div className="flex-1 flex flex-col overflow-auto relative">
             <ChatHeader />
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {messages.map((message, index) => {
-                    const showDateHeader = index === 0 || isDifferentDay(messages[index - 1], message);
+            {/* Pinned Message Banner */}
+            {latestPinned && (
+                <div 
+                    onClick={() => {
+                        const element = document.getElementById(`msg-${latestPinned._id}`);
+                        if (element) {
+                            element.scrollIntoView({ behavior: "smooth", block: "center" });
+                            element.classList.add("bg-primary/25");
+                            setTimeout(() => {
+                                element.classList.remove("bg-primary/25");
+                            }, 1500);
+                        }
+                    }}
+                    className="bg-base-200/95 backdrop-blur border-b border-base-300 px-4 py-2 flex items-center justify-between text-xs cursor-pointer hover:bg-base-300/40 transition-colors select-none z-20 animate-fade-in"
+                >
+                    <div className="flex items-center gap-2 min-w-0">
+                        <Pin className="size-3.5 text-primary rotate-45 flex-shrink-0 animate-pulse" />
+                        <div className="min-w-0">
+                            <p className="font-semibold text-primary text-[11px] leading-tight">Tin nhắn ghim</p>
+                            <p className="text-base-content/70 truncate text-[11px] max-w-[300px] sm:max-w-[500px] leading-tight mt-0.5">
+                                {latestPinned.image ? "[Hình ảnh] " : ""}{latestPinned.text || ""}
+                            </p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={(e) => {
+                            e.stopPropagation(); // Ngăn hành vi cuộn khi click nút đóng
+                            pinMessage(latestPinned._id);
+                        }}
+                        className="btn btn-ghost btn-circle btn-xs text-base-content/50 hover:text-base-content flex items-center justify-center flex-shrink-0"
+                    >
+                        <X className="size-3.5" />
+                    </button>
+                </div>
+            )}
 
-                    return (
-                        <div key={message._id}>
-                            {showDateHeader && (
-                                <div className="flex justify-center my-4">
-                                    <span className="bg-base-300/80 text-base-content/70 px-4 py-1 rounded-full text-xs font-semibold tracking-wide shadow-sm">
-                                        {formatDateHeader(message.createdAt)}
-                                    </span>
-                                </div>
-                            )}
-                            
+            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                {Object.entries(groupedMessages).map(([dateLabel, msgs]) => (
+                    <div key={dateLabel} className="space-y-4 relative">
+                        {/* Sticky Date Divider Header */}
+                        <div className="sticky top-0 z-[10] flex justify-center my-2 pointer-events-none">
+                            <span className="bg-base-300/90 backdrop-blur-sm text-base-content/85 px-4 py-1 rounded-full text-xs font-semibold tracking-wide shadow-sm pointer-events-auto border border-base-200/40">
+                                {dateLabel}
+                            </span>
+                        </div>
+
+                        {msgs.map((message) => (
                             <div
+                                key={message._id}
                                 id={`msg-${message._id}`}
                                 className={`chat ${message.senderId === authUser._id ? "chat-end" : "chat-start"} group relative transition-colors duration-500 rounded-xl p-1`}
                             >
@@ -116,6 +190,11 @@ const ChatContainer = () => {
                                                     </button>
                                                 </li>
                                                 <li>
+                                                    <button onClick={() => pinMessage(message._id)} className="py-1.5 hover:bg-base-300 rounded-md">
+                                                        {message.isPinned ? "Bỏ ghim" : "Ghim tin nhắn"}
+                                                    </button>
+                                                </li>
+                                                <li>
                                                     <button onClick={() => deleteMessage(message._id, "me")} className="py-1.5 hover:bg-base-300 rounded-md">
                                                         Xóa ở phía tôi
                                                     </button>
@@ -130,8 +209,16 @@ const ChatContainer = () => {
                                     )}
 
                                     {/* The Actual Visible Chat Bubble */}
-                                    <div className={`chat-bubble flex flex-col relative ${message.isRecalled ? "bg-base-300/40 text-base-content/40 italic" : ""}`}>
+                                    <div className={`chat-bubble flex flex-col relative ${message.isRecalled ? "bg-base-300/40 text-base-content/40 italic" : ""} ${message.isPinned ? "border border-primary/40 shadow-sm" : ""}`}>
                                         
+                                        {/* Pinned mini status inside bubble */}
+                                        {message.isPinned && (
+                                            <div className="flex items-center gap-1 text-[9px] text-primary/80 font-bold mb-1 select-none uppercase tracking-wider">
+                                                <Pin className="size-2.5 rotate-45 flex-shrink-0 text-primary" />
+                                                <span>Đã ghim</span>
+                                            </div>
+                                        )}
+
                                         {/* Reply Context (rendered inside the bubble, above the text/image) */}
                                         {message.replyTo && (
                                             <div 
@@ -199,6 +286,11 @@ const ChatContainer = () => {
                                                     </button>
                                                 </li>
                                                 <li>
+                                                    <button onClick={() => pinMessage(message._id)} className="py-1.5 hover:bg-base-300 rounded-md">
+                                                        {message.isPinned ? "Bỏ ghim" : "Ghim tin nhắn"}
+                                                    </button>
+                                                </li>
+                                                <li>
                                                     <button onClick={() => deleteMessage(message._id, "me")} className="py-1.5 hover:bg-base-300 rounded-md">
                                                         Xóa ở phía tôi
                                                     </button>
@@ -208,9 +300,9 @@ const ChatContainer = () => {
                                     )}
                                 </div>
                             </div>
-                        </div>
-                    );
-                })}
+                        ))}
+                    </div>
+                ))}
 
                 <div ref={messageEndRef} />
             </div>
