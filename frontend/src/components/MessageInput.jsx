@@ -1,13 +1,15 @@
 import { useRef, useState } from "react";
 import { useChatStore } from "../store/useChatStore";
-import { Image, Send, X } from "lucide-react";
+import { useAuthStore } from "../store/useAuthStore";
+import { Image, Send, X, Quote } from "lucide-react";
 import toast from "react-hot-toast";
 
 const MessageInput = () => {
     const [text, setText] = useState("");
     const [imagePreview, setImagePreview] = useState(null);
     const fileInputRef = useRef(null);
-    const { sendMessage } = useChatStore();
+    const { sendMessage, replyingTo, setReplyingTo, selectedUser } = useChatStore();
+    const { authUser } = useAuthStore();
 
     const handleImageChange = (e) => {
         const file = e.target.files[0];
@@ -47,8 +49,49 @@ const MessageInput = () => {
         }
     };
 
+    const repliedSenderName = replyingTo
+        ? replyingTo.senderId === authUser._id
+            ? "Chính mình"
+            : selectedUser.fullName
+        : "";
+
     return (
         <div className="p-4 w-full">
+            {/* Reply Preview Box */}
+            {replyingTo && (
+                <div className="mb-2 bg-base-200/60 rounded-lg p-2.5 flex items-center justify-between border-l-4 border-primary/80 animate-fade-in relative">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                        {/* Quote icon */}
+                        <div className="text-primary flex-shrink-0">
+                            <Quote className="size-4 rotate-180" />
+                        </div>
+                        {/* Thumbnail of image if replying to a photo */}
+                        {replyingTo.image && (
+                            <img
+                                src={replyingTo.image}
+                                alt="Reply Attachment"
+                                className="w-8 h-8 object-cover rounded border border-base-300 flex-shrink-0"
+                            />
+                        )}
+                        <div className="min-w-0 text-sm">
+                            <p className="font-semibold text-primary text-xs">
+                                Trả lời <span className="text-base-content/80 font-bold">{repliedSenderName}</span>
+                            </p>
+                            <p className="text-xs text-base-content/60 truncate max-w-[200px] sm:max-w-[400px]">
+                                {replyingTo.image ? "[Hình ảnh]" : replyingTo.text}
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => setReplyingTo(null)}
+                        className="btn btn-ghost btn-circle btn-xs hover:bg-base-300/80 flex items-center justify-center text-base-content/50 hover:text-base-content"
+                        type="button"
+                    >
+                        <X className="size-3.5" />
+                    </button>
+                </div>
+            )}
+
             {imagePreview && (
                 <div className="mb-3 flex items-center gap-2">
                     <div className="relative">

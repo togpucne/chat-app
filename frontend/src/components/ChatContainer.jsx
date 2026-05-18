@@ -31,7 +31,7 @@ const formatDateHeader = (dateString) => {
 };
 
 const ChatContainer = () => {
-    const { messages, getMessages, isMessagesLoading, selectedUser, subscribeToMessages, unsubscribeFromMessages, deleteMessage } = useChatStore();
+    const { messages, getMessages, isMessagesLoading, selectedUser, subscribeToMessages, unsubscribeFromMessages, deleteMessage, setReplyingTo } = useChatStore();
     const { authUser } = useAuthStore();
     const messageEndRef = useRef(null);
 
@@ -79,7 +79,8 @@ const ChatContainer = () => {
                             )}
                             
                             <div
-                                className={`chat ${message.senderId === authUser._id ? "chat-end" : "chat-start"} group relative`}
+                                id={`msg-${message._id}`}
+                                className={`chat ${message.senderId === authUser._id ? "chat-end" : "chat-start"} group relative transition-colors duration-500 rounded-xl p-1`}
                             >
                                 <div className="chat-image avatar">
                                     <div className="size-10 rounded-full border">
@@ -110,6 +111,11 @@ const ChatContainer = () => {
                                             </div>
                                             <ul tabIndex={0} className="dropdown-content z-[20] menu p-1 shadow-lg bg-base-200 border border-base-300 rounded-box w-36 text-xs text-base-content">
                                                 <li>
+                                                    <button onClick={() => setReplyingTo(message)} className="py-1.5 hover:bg-base-300 rounded-md">
+                                                        Trả lời
+                                                    </button>
+                                                </li>
+                                                <li>
                                                     <button onClick={() => deleteMessage(message._id, "me")} className="py-1.5 hover:bg-base-300 rounded-md">
                                                         Xóa ở phía tôi
                                                     </button>
@@ -125,6 +131,45 @@ const ChatContainer = () => {
 
                                     {/* The Actual Visible Chat Bubble */}
                                     <div className={`chat-bubble flex flex-col relative ${message.isRecalled ? "bg-base-300/40 text-base-content/40 italic" : ""}`}>
+                                        
+                                        {/* Reply Context (rendered inside the bubble, above the text/image) */}
+                                        {message.replyTo && (
+                                            <div 
+                                                onClick={() => {
+                                                    const element = document.getElementById(`msg-${message.replyTo._id}`);
+                                                    if (element) {
+                                                        element.scrollIntoView({ behavior: "smooth", block: "center" });
+                                                        // Highlight the target element briefly
+                                                        element.classList.add("bg-primary/25");
+                                                        setTimeout(() => {
+                                                            element.classList.remove("bg-primary/25");
+                                                        }, 1500);
+                                                    }
+                                                }}
+                                                className="cursor-pointer bg-base-200/50 hover:bg-base-200/80 transition-colors text-xs px-2.5 py-1.5 rounded border-l-4 border-primary/70 mb-1.5 opacity-85 flex items-center gap-2 max-w-[200px] text-base-content"
+                                            >
+                                                {message.replyTo.image && (
+                                                    <img 
+                                                        src={message.replyTo.image} 
+                                                        alt="Replied Attachment" 
+                                                        className="w-6 h-6 object-cover rounded border border-base-300 flex-shrink-0"
+                                                    />
+                                                )}
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="font-semibold text-primary/80 truncate text-[10px] leading-tight">
+                                                        {message.replyTo.senderId?._id === authUser._id 
+                                                            ? "Chính mình" 
+                                                            : message.replyTo.senderId?.fullName || "Người dùng"}
+                                                    </p>
+                                                    <p className="text-base-content/60 truncate text-[10px] leading-tight">
+                                                        {message.replyTo.isRecalled 
+                                                            ? "Tin nhắn đã bị thu hồi" 
+                                                            : message.replyTo.image ? "[Hình ảnh]" : message.replyTo.text}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {message.isRecalled ? (
                                             <p className="text-sm py-1">Tin nhắn đã bị thu hồi</p>
                                         ) : (
@@ -148,6 +193,11 @@ const ChatContainer = () => {
                                                 <MoreVertical className="size-4" />
                                             </div>
                                             <ul tabIndex={0} className="dropdown-content z-[20] menu p-1 shadow-lg bg-base-200 border border-base-300 rounded-box w-36 text-xs text-base-content">
+                                                <li>
+                                                    <button onClick={() => setReplyingTo(message)} className="py-1.5 hover:bg-base-300 rounded-md">
+                                                        Trả lời
+                                                    </button>
+                                                </li>
                                                 <li>
                                                     <button onClick={() => deleteMessage(message._id, "me")} className="py-1.5 hover:bg-base-300 rounded-md">
                                                         Xóa ở phía tôi
