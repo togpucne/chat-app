@@ -1,11 +1,11 @@
 import { useChatStore } from "../store/useChatStore";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import ChatHeader from "./ChatHeader";
 import MessageInput from "./MessageInput";
 import MessagesSkeleton from "./skeletons/MessagesSkeleton";
 import { useAuthStore } from "../store/useAuthStore";
 import { formatMessageTime } from "../lib/utils";
-import { MoreVertical, Pin, X, Paperclip } from "lucide-react";
+import { MoreVertical, Pin, X, Paperclip, RotateCcw, RotateCw, Download } from "lucide-react";
 
 // Kiểm tra 2 tin nhắn có được gửi ở 2 ngày khác nhau hay không
 const isDifferentDay = (msg1, msg2) => {
@@ -108,6 +108,38 @@ const ChatContainer = () => {
     const { messages, getMessages, isMessagesLoading, selectedUser, subscribeToMessages, unsubscribeFromMessages, deleteMessage, setReplyingTo, pinMessage, reactMessage } = useChatStore();
     const { authUser } = useAuthStore();
     const messageEndRef = useRef(null);
+
+    const [viewingImage, setViewingImage] = useState(null);
+    const [rotation, setRotation] = useState(0);
+
+    const handleRotateLeft = () => setRotation((prev) => (prev - 90) % 360);
+    const handleRotateRight = () => setRotation((prev) => (prev + 90) % 360);
+    const handleCloseViewer = () => {
+        setViewingImage(null);
+        setRotation(0);
+    };
+    const handleDownload = async () => {
+        try {
+            const response = await fetch(viewingImage);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `judo-chat-img-${Date.now()}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            const link = document.createElement("a");
+            link.href = viewingImage;
+            link.target = "_blank";
+            link.download = "image.png";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    };
 
     useEffect(() => {
         getMessages(selectedUser._id);
@@ -221,11 +253,6 @@ const ChatContainer = () => {
                                         />
                                     </div>
                                 </div>
-                                <div className="chat-header mb-1">
-                                    <time className="text-xs opacity-50 ml-1">
-                                        {formatMessageTime(message.createdAt)}
-                                    </time>
-                                </div>
                                 
                                 {/* Transparent wrapper grid item to position bubble and dropdown side-by-side without clipping */}
                                 <div className="chat-bubble bg-transparent p-0 max-w-[85%] overflow-visible flex items-center gap-2 shadow-none before:hidden after:hidden">
@@ -284,96 +311,108 @@ const ChatContainer = () => {
                                         </div>
                                     )}
 
-                                    {/* The Actual Visible Chat Bubble */}
-                                    <div className={`flex flex-col relative py-2.5 px-4 rounded-2xl shadow-sm text-[14px] leading-relaxed max-w-full overflow-visible transition-all duration-200 ${
-                                        message.senderId === authUser._id 
-                                            ? "bg-[#e1f0ff] border border-[#cbe3ff] text-[#081c36] rounded-tr-none" 
-                                            : "bg-white border border-[#e4e6eb] text-[#1c1e21] rounded-tl-none"
-                                    } ${message.isRecalled ? "bg-base-200/50 text-base-content/40 italic border-slate-200 shadow-none" : ""} ${message.isPinned ? "border-primary/50 ring-1 ring-primary/20" : ""}`}>
+                                    {/* The Actual Visible Chat Bubble wrapper (relative block to group image + bubble together) */}
+                                    <div className={`relative flex flex-col gap-1 max-w-full ${message.senderId === authUser._id ? "items-end" : "items-start"}`}>
                                         
-                                        {/* Pinned mini status inside bubble */}
-                                        {message.isPinned && (
-                                            <div className="flex items-center gap-1 text-[9px] text-primary/80 font-bold mb-1 select-none uppercase tracking-wider">
-                                                <Pin className="size-2.5 rotate-45 flex-shrink-0 text-primary" />
-                                                <span>Đã ghim</span>
-                                            </div>
+                                        {/* If there is an image, render it borderless and raw with rounded corners! */}
+                                        {message.image && (
+                                            <img
+                                                src={message.image}
+                                                alt="Attachment"
+                                                onClick={() => setViewingImage(message.image)}
+                                                className="max-w-[280px] sm:max-w-[320px] rounded-2xl cursor-zoom-in hover:opacity-95 transition-opacity shadow-sm border border-slate-200/30"
+                                            />
                                         )}
 
-                                        {/* Reply Context */}
-                                        {message.replyTo && (
-                                            <div 
-                                                onClick={() => {
-                                                    const element = document.getElementById(`msg-${message.replyTo._id}`);
-                                                    if (element) {
-                                                        element.scrollIntoView({ behavior: "smooth", block: "center" });
-                                                        element.classList.add("bg-primary/25");
-                                                        setTimeout(() => {
-                                                            element.classList.remove("bg-primary/25");
-                                                        }, 1500);
-                                                    }
-                                                }}
-                                                className="cursor-pointer bg-black/5 hover:bg-black/10 transition-colors text-xs px-2.5 py-1.5 rounded border-l-4 border-primary/70 mb-1.5 opacity-85 flex items-center gap-2 max-w-[200px]"
-                                            >
-                                                {message.replyTo.image && (
-                                                    <img 
-                                                        src={message.replyTo.image} 
-                                                        alt="Replied Attachment" 
-                                                        className="w-6 h-6 object-cover rounded border border-base-300 flex-shrink-0"
-                                                    />
-                                                )}
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="font-semibold text-primary/80 truncate text-[10px] leading-tight">
-                                                        {message.replyTo.senderId?._id === authUser._id 
-                                                            ? "Chính mình" 
-                                                            : message.replyTo.senderId?.fullName || "Người dùng"}
-                                                    </p>
-                                                    <p className="text-slate-600 truncate text-[10px] leading-tight">
-                                                        {message.replyTo.isRecalled 
-                                                            ? "Tin nhắn đã bị thu hồi" 
-                                                            : message.replyTo.image ? "[Hình ảnh]" : message.replyTo.file ? `[Tệp tin: ${message.replyTo.file.name}]` : message.replyTo.text}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {message.isRecalled ? (
-                                            <p className="text-sm py-1">Tin nhắn đã bị thu hồi</p>
-                                        ) : (
-                                            <>
-                                                {message.image && (
-                                                    <img
-                                                        src={message.image}
-                                                        alt="Attachment"
-                                                        className="sm:max-w-[200px] rounded-md mb-2"
-                                                    />
+                                        {/* If there is text, a file, a reply context, or if it is recalled, render the standard Zalo colored bubble! */}
+                                        {(message.text || message.file || message.isRecalled || message.replyTo) && (
+                                            <div className={`flex flex-col relative py-2.5 px-4 rounded-2xl shadow-sm text-[14px] leading-relaxed max-w-full overflow-visible transition-all duration-200 ${
+                                                message.senderId === authUser._id 
+                                                    ? "bg-[#e1f0ff] border border-[#cbe3ff] text-[#081c36] rounded-tr-none" 
+                                                    : "bg-white border border-[#e4e6eb] text-[#1c1e21] rounded-tl-none"
+                                            } ${message.isRecalled ? "bg-base-200/50 text-base-content/40 italic border-slate-200 shadow-none" : ""} ${message.isPinned ? "border-primary/50 ring-1 ring-primary/20" : ""}`}>
+                                                
+                                                {/* Pinned mini status inside bubble */}
+                                                {message.isPinned && (
+                                                    <div className="flex items-center gap-1 text-[9px] text-primary/80 font-bold mb-1 select-none uppercase tracking-wider">
+                                                        <Pin className="size-2.5 rotate-45 flex-shrink-0 text-primary" />
+                                                        <span>Đã ghim</span>
+                                                    </div>
                                                 )}
 
-                                                {/* Document download card */}
-                                                {message.file && message.file.url && (
-                                                    <a 
-                                                        href={message.file.url} 
-                                                        download={message.file.name}
-                                                        className="flex items-center gap-3 bg-[#f0f2f5] hover:bg-[#e4e6eb] text-slate-800 p-2.5 rounded-lg border border-[#e4e6eb] transition-colors mt-1 mb-2 select-none max-w-[240px] text-left shadow-sm"
-                                                        title="Bấm để tải tệp về"
+                                                {/* Reply Context */}
+                                                {message.replyTo && (
+                                                    <div 
+                                                        onClick={() => {
+                                                            const element = document.getElementById(`msg-${message.replyTo._id}`);
+                                                            if (element) {
+                                                                element.scrollIntoView({ behavior: "smooth", block: "center" });
+                                                                element.classList.add("bg-primary/25");
+                                                                setTimeout(() => {
+                                                                    element.classList.remove("bg-primary/25");
+                                                                }, 1500);
+                                                            }
+                                                        }}
+                                                        className="cursor-pointer bg-black/5 hover:bg-black/10 transition-colors text-xs px-2.5 py-1.5 rounded border-l-4 border-primary/70 mb-1.5 opacity-85 flex items-center gap-2 max-w-[200px]"
                                                     >
-                                                        <div className="bg-primary/10 text-primary p-2 rounded flex-shrink-0">
-                                                            <Paperclip className="size-5" />
-                                                        </div>
+                                                        {message.replyTo.image && (
+                                                            <img 
+                                                                src={message.replyTo.image} 
+                                                                alt="Replied Attachment" 
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setViewingImage(message.replyTo.image);
+                                                                }}
+                                                                className="w-6 h-6 object-cover rounded border border-base-300 flex-shrink-0 cursor-zoom-in hover:opacity-90 transition-opacity"
+                                                            />
+                                                        )}
                                                         <div className="min-w-0 flex-1">
-                                                            <p className="text-xs font-bold truncate leading-tight text-slate-800">{message.file.name}</p>
-                                                            <p className="text-[10px] text-slate-500 leading-none mt-1">
-                                                                {message.file.size ? `${(message.file.size / 1024).toFixed(1)} KB` : "Tệp đính kèm"}
+                                                            <p className="font-semibold text-primary/80 truncate text-[10px] leading-tight">
+                                                                {message.replyTo.senderId?._id === authUser._id 
+                                                                    ? "Chính mình" 
+                                                                    : message.replyTo.senderId?.fullName || "Người dùng"}
+                                                            </p>
+                                                            <p className="text-slate-600 truncate text-[10px] leading-tight">
+                                                                {message.replyTo.isRecalled 
+                                                                    ? "Tin nhắn đã bị thu hồi" 
+                                                                    : message.replyTo.image ? "[Hình ảnh]" : message.replyTo.file ? `[Tệp tin: ${message.replyTo.file.name}]` : message.replyTo.text}
                                                             </p>
                                                         </div>
-                                                    </a>
+                                                    </div>
                                                 )}
 
-                                                {message.text && (
-                                                    <p className="break-words text-sm whitespace-pre-wrap">
-                                                        {renderFormattedText(message.text)}
-                                                    </p>
+                                                {message.isRecalled ? (
+                                                    <p className="text-sm py-1">Tin nhắn đã bị thu hồi</p>
+                                                ) : (
+                                                    <>
+                                                        {/* Document download card */}
+                                                        {message.file && message.file.url && (
+                                                            <a 
+                                                                href={message.file.url} 
+                                                                download={message.file.name}
+                                                                className="flex items-center gap-3 bg-[#f0f2f5] hover:bg-[#e4e6eb] text-slate-800 p-2.5 rounded-lg border border-[#e4e6eb] transition-colors mt-1 mb-2 select-none max-w-[240px] text-left shadow-sm"
+                                                                title="Bấm để tải tệp về"
+                                                            >
+                                                                <div className="bg-primary/10 text-primary p-2 rounded flex-shrink-0">
+                                                                    <Paperclip className="size-5" />
+                                                                </div>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <p className="text-xs font-bold truncate leading-tight text-slate-800">{message.file.name}</p>
+                                                                    <p className="text-[10px] text-slate-500 leading-none mt-1">
+                                                                        {message.file.size ? `${(message.file.size / 1024).toFixed(1)} KB` : "Tệp đính kèm"}
+                                                                    </p>
+                                                                </div>
+                                                            </a>
+                                                        )}
+
+                                                        {message.text && (
+                                                            <p className="break-words text-sm whitespace-pre-wrap">
+                                                                {renderFormattedText(message.text)}
+                                                            </p>
+                                                        )}
+                                                    </>
                                                 )}
-                                            </>
+                                            </div>
                                         )}
 
                                         {/* Distinct Emoji Reaction Pill */}
@@ -440,6 +479,11 @@ const ChatContainer = () => {
                                         </div>
                                     )}
                                 </div>
+
+                                {/* Time displayed below the bubble (Zalo style) */}
+                                <div className="chat-footer opacity-45 text-[10px] mt-1 select-none">
+                                    {formatMessageTime(message.createdAt)}
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -449,6 +493,53 @@ const ChatContainer = () => {
             </div>
 
             <MessageInput />
+
+            {/* Full Screen Image Viewer Modal */}
+            {viewingImage && (
+                <div className="fixed inset-0 bg-black/95 backdrop-blur-sm z-[9999] flex flex-col items-center justify-center animate-fade-in select-none">
+                    {/* Top Control Bar */}
+                    <div className="absolute top-4 right-4 flex items-center gap-3">
+                        <button 
+                            onClick={handleRotateLeft}
+                            className="btn btn-circle btn-sm bg-zinc-800 border-zinc-700 text-white hover:bg-zinc-700 flex items-center justify-center"
+                            title="Xoay trái"
+                        >
+                            <RotateCcw className="size-4" />
+                        </button>
+                        <button 
+                            onClick={handleRotateRight}
+                            className="btn btn-circle btn-sm bg-zinc-800 border-zinc-700 text-white hover:bg-zinc-700 flex items-center justify-center"
+                            title="Xoay phải"
+                        >
+                            <RotateCw className="size-4" />
+                        </button>
+                        <button 
+                            onClick={handleDownload}
+                            className="btn btn-circle btn-sm bg-zinc-800 border-zinc-700 text-white hover:bg-zinc-700 flex items-center justify-center"
+                            title="Tải về"
+                        >
+                            <Download className="size-4" />
+                        </button>
+                        <button 
+                            onClick={handleCloseViewer}
+                            className="btn btn-circle btn-sm bg-zinc-800 border-zinc-700 text-white hover:bg-zinc-700 flex items-center justify-center"
+                            title="Đóng"
+                        >
+                            <X className="size-4" />
+                        </button>
+                    </div>
+
+                    {/* Image Container */}
+                    <div className="max-w-[90%] max-h-[80%] flex items-center justify-center overflow-hidden transition-all duration-300">
+                        <img 
+                            src={viewingImage} 
+                            alt="Enlarged view" 
+                            style={{ transform: `rotate(${rotation}deg)` }}
+                            className="max-w-full max-h-[80vh] object-contain rounded shadow-2xl transition-transform duration-200"
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
