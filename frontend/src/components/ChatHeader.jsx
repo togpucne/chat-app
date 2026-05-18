@@ -4,7 +4,7 @@ import { useChatStore } from "../store/useChatStore";
 
 const formatLastActive = (updatedAt, isOnline) => {
     if (isOnline) return "Đang hoạt động";
-    if (!updatedAt) return "Ngoại tuyến";
+    if (!updatedAt) return "offline";
     
     const diffMs = Date.now() - new Date(updatedAt).getTime();
     const diffMins = Math.floor(diffMs / (1000 * 60));
@@ -14,7 +14,8 @@ const formatLastActive = (updatedAt, isOnline) => {
     if (diffMins < 1) return "Vừa mới truy cập";
     if (diffMins < 60) return `Truy cập ${diffMins} phút trước`;
     if (diffHours < 24) return `Truy cập ${diffHours} giờ trước`;
-    return `Truy cập ${diffDays} ngày trước`;
+    if (diffDays < 30) return `Truy cập ${diffDays} ngày trước`;
+    return "offline";
 };
 
 const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOpen }) => {

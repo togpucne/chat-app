@@ -234,12 +234,16 @@ export const useChatStore = create((set, get) => ({
                 set({ unreadCounts: counts });
                 localStorage.setItem("unread_counts", JSON.stringify(counts));
                 
-                // Play simple notification chime if available
-                try {
-                    const audio = new Audio("/notification.mp3");
-                    audio.volume = 0.4;
-                    audio.play().catch(() => {});
-                } catch (e) {}
+                // Play simple notification chime if available only if NOT muted!
+                const authUser = useAuthStore.getState().authUser;
+                const isMuted = authUser && localStorage.getItem(`muted_${authUser._id}_${senderId}`) === "true";
+                if (!isMuted) {
+                    try {
+                        const audio = new Audio("/notification.mp3");
+                        audio.volume = 0.4;
+                        audio.play().catch(() => {});
+                    } catch (e) {}
+                }
             }
         });
 

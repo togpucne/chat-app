@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useChatStore } from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
 import SidebarSkeleton from "./skeletons/SidebarSkeleton";
-import { Users } from "lucide-react";
+import { Users, BellOff } from "lucide-react";
 
 const formatMessageTime = (createdAt) => {
     if (!createdAt) return "";
@@ -127,10 +127,12 @@ const Sidebar = () => {
             </div>
             {/* Users List */}
             <div className="overflow-y-auto w-full py-3">
-                {filteredUsers.map((user) => (
-                    <button
-                        key={user._id}
-                        onClick={() => setSelectedUser(user)}
+                {filteredUsers.map((user) => {
+                    const isMuted = authUser && localStorage.getItem(`muted_${authUser._id}_${user._id}`) === "true";
+                    return (
+                        <button
+                            key={user._id}
+                            onClick={() => setSelectedUser(user)}
                         className={`
         w-full p-3 flex items-center gap-3 
         hover:bg-base-300 transition-colors
@@ -155,11 +157,15 @@ const Sidebar = () => {
                             )}
 
                             {/* Small screen unread badge (absolute top-right of avatar) */}
-                            {unreadCounts[user._id] > 0 && (
+                            {isMuted ? (
+                                <span className="absolute -top-1 -right-1 flex items-center justify-center size-5 bg-base-300 text-base-content/60 rounded-full shadow-sm z-20 lg:hidden">
+                                    <BellOff className="size-3" />
+                                </span>
+                            ) : unreadCounts[user._id] > 0 ? (
                                 <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-5 h-5 px-1 bg-red-500 text-white text-[10px] font-black rounded-full shadow-sm z-20 lg:hidden animate-pulse">
                                     {unreadCounts[user._id] > 5 ? "5+" : unreadCounts[user._id]}
                                 </span>
-                            )}
+                            ) : null}
                         </div>
 
                         {/* User Info - only visible on larger screens */}
@@ -183,7 +189,11 @@ const Sidebar = () => {
                                 <div className="text-[10px] text-zinc-400">
                                     {formatLastActiveShort(user.updatedAt, onlineUsers.includes(user._id))}
                                 </div>
-                                {unreadCounts[user._id] > 0 ? (
+                                {isMuted ? (
+                                    <div className="flex items-center justify-center mr-2">
+                                        <BellOff className="size-4 text-zinc-400" />
+                                    </div>
+                                ) : unreadCounts[user._id] > 0 ? (
                                     <span className="flex items-center justify-center min-w-5 h-5 px-1.5 bg-red-500 text-white text-[10px] font-black rounded-full shadow-sm mr-2 animate-pulse">
                                         {unreadCounts[user._id] > 5 ? "5+" : unreadCounts[user._id]}
                                     </span>
@@ -193,7 +203,7 @@ const Sidebar = () => {
                             </div>
                         </div>
                     </button>
-                ))}
+                ); })}
             </div>
 
 

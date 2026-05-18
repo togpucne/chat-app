@@ -29,6 +29,42 @@ const MessageInput = () => {
 
     const emojis = ["😀", "😂", "🤣", "❤️", "👍", "😍", "😘", "😭", "🙏", "🎉", "🔥", "🙌", "👏", "💩", "😎", "🤩", "😮", "😡"];
 
+    const typingTimeoutRef = useRef(null);
+    const isTypingRef = useRef(false);
+
+    // Stop typing state immediately when user changes conversation
+    useEffect(() => {
+        if (isTypingRef.current) {
+            const socket = useAuthStore.getState().socket;
+            if (socket && selectedUser) {
+                socket.emit("typing", { recipientId: selectedUser._id, isTyping: false });
+            }
+            isTypingRef.current = false;
+        }
+        if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+        }
+    }, [selectedUser]);
+
+    const handleTyping = () => {
+        const socket = useAuthStore.getState().socket;
+        if (!socket || !selectedUser) return;
+
+        if (!isTypingRef.current) {
+            isTypingRef.current = true;
+            socket.emit("typing", { recipientId: selectedUser._id, isTyping: true });
+        }
+
+        if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+        }
+
+        typingTimeoutRef.current = setTimeout(() => {
+            isTypingRef.current = false;
+            socket.emit("typing", { recipientId: selectedUser._id, isTyping: false });
+        }, 5000);
+    };
+
     // Tự động focus vào ô nhập liệu khi nhấn "Trả lời"
     useEffect(() => {
         if (replyingTo && inputRef.current) {
@@ -85,6 +121,18 @@ const MessageInput = () => {
     const handleSendMessage = async (e) => {
         if (e) e.preventDefault();
         
+        // Clear typing state immediately on send
+        if (isTypingRef.current) {
+            isTypingRef.current = false;
+            const socket = useAuthStore.getState().socket;
+            if (socket && selectedUser) {
+                socket.emit("typing", { recipientId: selectedUser._id, isTyping: false });
+            }
+        }
+        if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+        }
+        
         // Lấy nội dung từ thẻ contenteditable
         const currentHtml = inputRef.current ? inputRef.current.innerHTML : "";
         let cleanText = currentHtml.trim();
@@ -119,6 +167,17 @@ const MessageInput = () => {
     };
 
     const handleSendLike = async () => {
+        // Clear typing state immediately on send
+        if (isTypingRef.current) {
+            isTypingRef.current = false;
+            const socket = useAuthStore.getState().socket;
+            if (socket && selectedUser) {
+                socket.emit("typing", { recipientId: selectedUser._id, isTyping: false });
+            }
+        }
+        if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+        }
         try {
             await sendMessage({
                 text: "👍",
@@ -305,8 +364,8 @@ const MessageInput = () => {
                 </div>
             )}
 
-            {/* Zalo-style Toolbar Icons (Only essential features as requested) */}
-            <div className="flex items-center gap-2 mb-2 pb-2 border-b border-base-300/40 text-base-content/60 relative">
+            {/* Zalo-style Toolbar Icons (Compact & clean like Zalo PC) */}
+            <div className="flex items-center gap-2 mb-2 pb-1 border-b border-base-200/50 text-slate-500/80 relative select-none">
                 {/* Emoji Smile */}
                 <div className="relative">
                     <button 
@@ -315,7 +374,7 @@ const MessageInput = () => {
                             setEmojiOpen(!emojiOpen);
                             setFormatOpen(false);
                         }} 
-                        className={`btn btn-ghost btn-xs btn-circle ${emojiOpen ? "bg-primary/20 text-primary" : "text-base-content/75"} hover:bg-base-300`} 
+                        className={`w-7 h-7 flex items-center justify-center rounded hover:bg-base-200 text-slate-600 hover:text-primary transition-colors ${emojiOpen ? "bg-primary/10 text-primary hover:bg-primary/20" : ""}`} 
                         title="Chọn biểu cảm"
                     >
                         <Smile className="size-4" />
@@ -342,7 +401,7 @@ const MessageInput = () => {
                 <button 
                     type="button" 
                     onClick={() => fileInputRef.current?.click()} 
-                    className="btn btn-ghost btn-xs btn-circle text-base-content/75 hover:bg-base-300" 
+                    className="w-7 h-7 flex items-center justify-center rounded hover:bg-base-200 text-slate-600 hover:text-primary transition-colors" 
                     title="Gửi hình ảnh"
                 >
                     <Image className="size-4" />
@@ -352,7 +411,7 @@ const MessageInput = () => {
                 <button 
                     type="button" 
                     onClick={() => docInputRef.current?.click()} 
-                    className="btn btn-ghost btn-xs btn-circle text-base-content/75 hover:bg-base-300" 
+                    className="w-7 h-7 flex items-center justify-center rounded hover:bg-base-200 text-slate-600 hover:text-primary transition-colors" 
                     title="Đính kèm tệp tài liệu"
                 >
                     <Paperclip className="size-4" />
@@ -365,7 +424,7 @@ const MessageInput = () => {
                         setFormatOpen(!formatOpen);
                         setEmojiOpen(false);
                     }} 
-                    className={`btn btn-ghost btn-xs btn-circle ${formatOpen ? "bg-primary/20 text-primary" : "text-base-content/75"} hover:bg-base-300`} 
+                    className={`w-7 h-7 flex items-center justify-center rounded hover:bg-base-200 text-slate-600 hover:text-primary transition-colors ${formatOpen ? "bg-primary/10 text-primary hover:bg-primary/20" : ""}`} 
                     title="Định dạng tin nhắn"
                 >
                     <Type className="size-4" />
@@ -379,7 +438,10 @@ const MessageInput = () => {
                     <div
                         ref={inputRef}
                         contentEditable="true"
-                        onInput={(e) => setText(e.currentTarget.innerHTML)}
+                        onInput={(e) => {
+                            setText(e.currentTarget.innerHTML);
+                            handleTyping();
+                        }}
                         className="w-full min-h-[40px] max-h-[120px] overflow-y-auto input input-bordered rounded-lg p-2.5 text-sm sm:text-base outline-none whitespace-pre-wrap text-left break-words pr-10"
                         placeholder={`Nhập tin nhắn tới ${selectedUser.fullName}...`}
                         onKeyDown={(e) => {

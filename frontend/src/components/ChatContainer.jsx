@@ -5,7 +5,7 @@ import MessageInput from "./MessageInput";
 import MessagesSkeleton from "./skeletons/MessagesSkeleton";
 import { useAuthStore } from "../store/useAuthStore";
 import { formatMessageTime } from "../lib/utils";
-import { MoreVertical, Pin, X, Paperclip, RotateCcw, RotateCw, Download, Search, Trash2, Ban, Bell, Link2, FileText, Image, Globe, Check, Calendar, ChevronDown } from "lucide-react";
+import { MoreVertical, Pin, X, Paperclip, RotateCcw, RotateCw, Download, Search, Trash2, Ban, Bell, BellOff, Link2, FileText, Image, Globe, Check, Calendar, ChevronDown } from "lucide-react";
 
 // Kiểm tra 2 tin nhắn có được gửi ở 2 ngày khác nhau hay không
 const isDifferentDay = (msg1, msg2) => {
@@ -142,8 +142,10 @@ const ChatContainer = () => {
     // Sidebar real block action states & history expansion states
     const [isIBlockedHim, setIsIBlockedHim] = useState(() => localStorage.getItem(`block_${authUser._id}_${selectedUser?._id}`) === "true");
     const [isHeBlockedMe, setIsHeBlockedMe] = useState(() => localStorage.getItem(`block_${selectedUser?._id}_${authUser._id}`) === "true");
-    const [isMuted, setIsMuted] = useState(false);
+    const [isMuted, setIsMuted] = useState(() => selectedUser && authUser ? localStorage.getItem(`muted_${authUser._id}_${selectedUser._id}`) === "true" : false);
     const [isPinnedConv, setIsPinnedConv] = useState(false);
+    const [isRecipientTyping, setIsRecipientTyping] = useState(false);
+    const recipientTypingTimeoutRef = useRef(null);
 
     const [showAllSharedImages, setShowAllSharedImages] = useState(false);
     const [showAllSharedFiles, setShowAllSharedFiles] = useState(false);
@@ -151,10 +153,17 @@ const ChatContainer = () => {
 
     useEffect(() => {
         if (selectedUser && authUser) {
-            // Load block states
+            // Load block and mute states
             setIsIBlockedHim(localStorage.getItem(`block_${authUser._id}_${selectedUser._id}`) === "true");
             setIsHeBlockedMe(localStorage.getItem(`block_${selectedUser._id}_${authUser._id}`) === "true");
+            setIsMuted(localStorage.getItem(`muted_${authUser._id}_${selectedUser._id}`) === "true");
             
+            // Reset typing state immediately upon changing conversation
+            setIsRecipientTyping(false);
+            if (recipientTypingTimeoutRef.current) {
+                clearTimeout(recipientTypingTimeoutRef.current);
+            }
+
             // Clean/Reset deleted chat flag automatically when conversation starts
             localStorage.removeItem(`deleted_chat_${authUser._id}_${selectedUser._id}`);
 
@@ -163,7 +172,7 @@ const ChatContainer = () => {
             setShowAllSharedFiles(false);
             setShowAllSharedLinks(false);
 
-            // Listen to real-time block changes
+            // Listen to real-time block and typing changes
             const socket = useAuthStore.getState().socket;
             if (socket) {
                 const handleBlockChange = ({ blockerId, isBlocked }) => {
@@ -171,9 +180,30 @@ const ChatContainer = () => {
                         setIsHeBlockedMe(isBlocked);
                     }
                 };
+
+                const handleTypingChange = ({ senderId, isTyping }) => {
+                    if (senderId === selectedUser._id) {
+                        setIsRecipientTyping(isTyping);
+                        if (isTyping) {
+                            if (recipientTypingTimeoutRef.current) {
+                                clearTimeout(recipientTypingTimeoutRef.current);
+                            }
+                            recipientTypingTimeoutRef.current = setTimeout(() => {
+                                setIsRecipientTyping(false);
+                            }, 6000);
+                        }
+                    }
+                };
+
                 socket.on("blockStateChanged", handleBlockChange);
+                socket.on("typingStateChanged", handleTypingChange);
+
                 return () => {
                     socket.off("blockStateChanged", handleBlockChange);
+                    socket.off("typingStateChanged", handleTypingChange);
+                    if (recipientTypingTimeoutRef.current) {
+                        clearTimeout(recipientTypingTimeoutRef.current);
+                    }
                 };
             }
         }
@@ -232,12 +262,12 @@ const ChatContainer = () => {
 
     }, [selectedUser._id, getMessages, subscribeToMessages, unsubscribeFromMessages]);
 
-    // Tự động cuộn xuống khi có tin nhắn mới
+    // Tự động cuộn xuống khi có tin nhắn mới hoặc trạng thái đang nhập thay đổi
     useEffect(() => {
-        if (messageEndRef.current && messages) {
+        if (messageEndRef.current) {
             messageEndRef.current.scrollIntoView({ behavior: "smooth" });
         }
-    }, [messages]);
+    }, [messages, isRecipientTyping]);
 
     if (isMessagesLoading) {
         return (
@@ -741,6 +771,26 @@ const ChatContainer = () => {
                     </div>
                 ))}
 
+                {isRecipientTyping && (
+                    <div className="chat chat-start group relative transition-colors duration-500 rounded-xl p-1 animate-fade-in select-none">
+                        <div className="chat-image avatar">
+                            <div className="size-8 rounded-full border">
+                                <img
+                                    src={selectedUser.profilePic || "/avatar.png"}
+                                    alt="Ảnh đại diện"
+                                />
+                            </div>
+                        </div>
+                        <div className="chat-bubble bg-[#f0f2f5] border border-slate-200/80 text-[#1c1e21] rounded-tl-none py-1 px-2.5 rounded-xl shadow-none max-w-[42px] min-h-[26px] flex items-center justify-center before:hidden after:hidden">
+                            <div className="flex gap-0.5 items-center justify-center">
+                                <span className="size-1 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: "0ms", animationDuration: "1000ms" }}></span>
+                                <span className="size-1 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: "150ms", animationDuration: "1000ms" }}></span>
+                                <span className="size-1 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: "300ms", animationDuration: "1000ms" }}></span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div ref={messageEndRef} />
             </div>
 
@@ -797,7 +847,17 @@ const ChatContainer = () => {
                         <div className="grid grid-cols-3 gap-2 w-full mt-5">
                             {/* Mute action */}
                             <button 
-                                onClick={() => setIsMuted(!isMuted)}
+                                onClick={() => {
+                                    if (selectedUser && authUser) {
+                                        const nextMuted = !isMuted;
+                                        if (nextMuted) {
+                                            localStorage.setItem(`muted_${authUser._id}_${selectedUser._id}`, "true");
+                                        } else {
+                                            localStorage.removeItem(`muted_${authUser._id}_${selectedUser._id}`);
+                                        }
+                                        setIsMuted(nextMuted);
+                                    }
+                                }}
                                 className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs gap-1.5 transition-colors ${
                                     isMuted 
                                         ? "bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100" 
@@ -805,7 +865,7 @@ const ChatContainer = () => {
                                 }`}
                             >
                                 {isMuted ? <BellOff className="size-4" /> : <Bell className="size-4" />}
-                                <span className="text-[10px] font-semibold leading-none">{isMuted ? "Bật âm" : "Tắt âm"}</span>
+                                <span className="text-[10px] font-semibold leading-none">{isMuted ? "Bật thông báo" : "Tắt thông báo"}</span>
                             </button>
 
                             {/* Pin action */}
