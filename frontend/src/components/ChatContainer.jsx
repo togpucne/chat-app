@@ -579,9 +579,9 @@ const ChatContainer = () => {
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
                 {Object.entries(groupedMessages).map(([dateLabel, msgs]) => (
                     <div key={dateLabel} className="space-y-4 relative">
-                        {/* Sticky Date Divider Header */}
-                        <div className="sticky top-0 z-[10] flex justify-center my-2 pointer-events-none">
-                            <span className="bg-base-300/90 backdrop-blur-sm text-base-content/85 px-4 py-1 rounded-full text-xs font-semibold tracking-wide shadow-sm pointer-events-auto border border-base-200/40">
+                        {/* Date Divider Header */}
+                        <div className="flex justify-center my-4">
+                            <span className="bg-base-300/90 text-base-content/85 px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide shadow-sm border border-base-200/40">
                                 {dateLabel}
                             </span>
                         </div>

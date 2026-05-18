@@ -107,6 +107,9 @@ export const useAuthStore = create((set, get) => ({
                 } : null
             }));
             toast.success(`${requester.fullName} đã gửi cho bạn lời mời kết bạn!`, { icon: "👋" });
+            import("./useChatStore").then(({ useChatStore }) => {
+                useChatStore.getState().getUsers();
+            });
         });
 
         socket.on("friendRequestAccepted", (friend) => {

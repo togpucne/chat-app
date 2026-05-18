@@ -8,12 +8,16 @@ export const getUsersForSidebar = async (req, res) => {
     const loggedInUserId = req.user._id;
     const currentUser = await User.findById(loggedInUserId);
     const friendIds = currentUser.friends || [];
+    const friendRequests = currentUser.friendRequests || [];
+    const sentRequests = currentUser.sentRequests || [];
 
     const messageHistory1 = await Message.distinct("senderId", { receiverId: loggedInUserId });
     const messageHistory2 = await Message.distinct("receiverId", { senderId: loggedInUserId });
     
     const relevantUserIds = [...new Set([
       ...friendIds.map(id => id.toString()), 
+      ...friendRequests.map(id => id.toString()),
+      ...sentRequests.map(id => id.toString()),
       ...messageHistory1.map(id => id.toString()), 
       ...messageHistory2.map(id => id.toString())
     ])].filter(id => id !== loggedInUserId.toString());

@@ -84,7 +84,8 @@ const Sidebar = () => {
         unreadCounts
     } = useChatStore();
 
-    const { onlineUsers, authUser } = useAuthStore();
+    const { onlineUsers, authUser, acceptFriendRequest, rejectFriendRequest } = useAuthStore();
+    const onlineFriendsCount = onlineUsers.filter(id => authUser?.friends?.includes(id)).length;
     const [showOnlineOnly, setShowOnlineOnly] = useState(false);
     const [pinnedToggle, setPinnedToggle] = useState(false);
 
@@ -161,7 +162,7 @@ const Sidebar = () => {
                         }`}
                     >
                         <span className={`size-2 rounded-full ${showOnlineOnly ? "bg-white" : "bg-green-500 animate-pulse"}`}></span>
-                        <span>{onlineUsers.length > 0 ? onlineUsers.length - 1 : 0} online</span>
+                        <span>{onlineFriendsCount} online</span>
                     </button>
                 </div>
                 
@@ -175,7 +176,32 @@ const Sidebar = () => {
             </div>
             {/* Users List */}
             <div className="overflow-y-auto w-full py-2 flex-1">
-                {filteredUsers.length === 0 ? (
+                {(authUser?.friendRequests?.length > 0) && (
+          <div className="mb-2">
+            <h4 className="font-semibold text-sm mb-1">Lời mời kết bạn</h4>
+            {authUser.friendRequests.map(reqId => {
+              const reqUser = users.find(u => u._id === reqId);
+              if (!reqUser) return null;
+              return (
+                <div key={reqId} className="flex items-center justify-between p-2 bg-base-200 rounded mb-1">
+                  <div className="flex items-center gap-2">
+                    <img src={reqUser.profilePic || "/avatar.png"} alt={reqUser.fullName} className="size-8 rounded-full" />
+                    <span className="font-medium">{reqUser.fullName}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => acceptFriendRequest(reqId)} className="btn btn-success btn-xs">
+                      <UserPlus className="size-3" />
+                    </button>
+                    <button onClick={() => rejectFriendRequest(reqId)} className="btn btn-error btn-xs">
+                      <X className="size-3" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {filteredUsers.length === 0 ? (
                     <div className="text-center py-8 px-4 text-base-content/40 text-xs italic">
                         Chưa có cuộc trò chuyện nào.<br/>Bấm tìm số điện thoại để kết bạn!
                     </div>

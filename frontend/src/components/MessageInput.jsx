@@ -9,7 +9,8 @@ import {
     Smile, 
     Paperclip, 
     Type, 
-    ThumbsUp 
+    ThumbsUp,
+    Loader2
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -19,6 +20,7 @@ const MessageInput = () => {
     const [fileAttachment, setFileAttachment] = useState(null); // { url, name, size }
     const [emojiOpen, setEmojiOpen] = useState(false);
     const [formatOpen, setFormatOpen] = useState(false);
+    const [isSending, setIsSending] = useState(false);
 
     const fileInputRef = useRef(null);
     const docInputRef = useRef(null);
@@ -143,7 +145,9 @@ const MessageInput = () => {
         }
 
         if (!cleanText && !imagePreview && !fileAttachment) return;
+        if (isSending) return;
 
+        setIsSending(true);
         try {
             await sendMessage({
                 text: cleanText,
@@ -163,6 +167,8 @@ const MessageInput = () => {
             setFormatOpen(false);
         } catch (error) {
             console.error("Gửi tin nhắn thất bại:", error);
+        } finally {
+            setIsSending(false);
         }
     };
 
@@ -291,15 +297,21 @@ const MessageInput = () => {
                         <img
                             src={imagePreview}
                             alt="Preview"
-                            className="w-20 h-20 object-cover rounded-lg border border-base-300"
+                            className={`w-20 h-20 object-cover rounded-lg border border-base-300 ${isSending ? "opacity-50" : ""}`}
                         />
-                        <button
-                            onClick={removeImage}
-                            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-base-300 hover:bg-base-400 transition-colors flex items-center justify-center text-base-content"
-                            type="button"
-                        >
-                            <X className="size-3" />
-                        </button>
+                        {isSending ? (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg">
+                                <Loader2 className="size-6 text-primary animate-spin" />
+                            </div>
+                        ) : (
+                            <button
+                                onClick={removeImage}
+                                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-base-300 hover:bg-base-400 transition-colors flex items-center justify-center text-base-content shadow"
+                                type="button"
+                            >
+                                <X className="size-3" />
+                            </button>
+                        )}
                     </div>
                 </div>
             )}
@@ -497,10 +509,11 @@ const MessageInput = () => {
                 ) : (
                     <button
                         type="submit"
-                        className="btn btn-primary btn-circle btn-sm flex items-center justify-center flex-shrink-0 animate-scale-in"
+                        disabled={isSending}
+                        className="btn btn-primary btn-circle btn-sm flex items-center justify-center flex-shrink-0 animate-scale-in disabled:opacity-80"
                         title="Gửi"
                     >
-                        <Send className="size-4" />
+                        {isSending ? <Loader2 className="size-4 text-white animate-spin" /> : <Send className="size-4 text-white" />}
                     </button>
                 )}
             </form>

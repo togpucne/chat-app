@@ -112,26 +112,34 @@ export const logout = (req, res) => {
 
 export const updateProfile = async (req, res) => {
   try {
-    const { profilePic } = req.body;
+    const { profilePic, fullName } = req.body;
     const userId = req.user._id;
 
-    if (!profilePic) {
-      return res.status(400).json({ message: "Vui lòng chọn ảnh đại diện." });
+    if (!profilePic && !fullName) {
+      return res.status(400).json({ message: "Không có thông tin cần cập nhật." });
     }
 
-    const updateResponse = await cloudinary.uploader.upload(profilePic);
-    const updateUser = await User.findByIdAndUpdate(userId, {
-      profilePic: updateResponse.secure_url
-    }, { returnDocument: "after" });
+    const updateData = {};
+    if (profilePic && profilePic.startsWith("data:image")) {
+      const updateResponse = await cloudinary.uploader.upload(profilePic);
+      updateData.profilePic = updateResponse.secure_url;
+    } else if (profilePic) {
+      updateData.profilePic = profilePic;
+    }
+
+    if (fullName && fullName.trim()) {
+      updateData.fullName = fullName.trim();
+    }
+
+    const updateUser = await User.findByIdAndUpdate(userId, updateData, { new: true }).select("-password");
 
     return res.status(200).json(updateUser);
 
   } catch (error) {
-    console.log("Lỗi cập nhật ảnh đại diện " + error.message);
+    console.log("Lỗi cập nhật hồ sơ: " + error.message);
     return res.status(500).json({ message: "Lỗi hệ thống" });
   }
-
-}
+};
 
 
 export const checkAuth = (req, res) => {
