@@ -135,6 +135,19 @@ export const useAuthStore = create((set, get) => ({
             }));
             toast.error(`${fullName} đã từ chối lời mời kết bạn.`, { icon: "❌" });
         });
+
+        socket.on("unfriended", ({ userId, fullName }) => {
+            set(state => ({
+                authUser: state.authUser ? {
+                    ...state.authUser,
+                    friends: (state.authUser.friends || []).filter(id => id !== userId)
+                } : null
+            }));
+            toast.error(`${fullName} đã hủy kết bạn với bạn.`, { icon: "💔" });
+            import("./useChatStore").then(({ useChatStore }) => {
+                useChatStore.getState().getUsers();
+            });
+        });
     },
     disconnectSocket: () => {
         if (get().socket?.connected) get().socket.disconnect();
@@ -185,6 +198,22 @@ export const useAuthStore = create((set, get) => ({
         } catch (error) {
             toast.error(error.response?.data?.message || "Lỗi từ chối kết bạn");
         }
+    },
+    unfriend: async (targetId) => {
+        try {
+            const res = await axiosInstance.post(`/messages/unfriend/${targetId}`);
+            set(state => ({
+                authUser: state.authUser ? {
+                    ...state.authUser,
+                    friends: res.data.friends
+                } : null
+            }));
+            toast.success("Đã hủy kết bạn");
+            import("./useChatStore").then(({ useChatStore }) => {
+                useChatStore.getState().getUsers();
+            });
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Lỗi hủy kết bạn");
+        }
     }
-
 }));

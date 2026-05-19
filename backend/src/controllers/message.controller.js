@@ -219,6 +219,36 @@ export const rejectFriendRequest = async (req, res) => {
   }
 };
 
+export const unfriendUser = async (req, res) => {
+  try {
+    const { id: targetId } = req.params;
+    const myId = req.user._id;
+
+    const me = await User.findById(myId);
+    const target = await User.findById(targetId);
+    if (!me || !target) return res.status(404).json({ message: "Không tìm thấy người dùng" });
+
+    me.friends = me.friends?.filter(id => id.toString() !== targetId.toString()) || [];
+    target.friends = target.friends?.filter(id => id.toString() !== myId.toString()) || [];
+
+    await me.save();
+    await target.save();
+
+    const targetSocketId = getReceiverSocketId(targetId.toString());
+    if (targetSocketId) {
+      io.to(targetSocketId).emit("unfriended", {
+        userId: myId.toString(),
+        fullName: me.fullName
+      });
+    }
+
+    return res.status(200).json({ success: true, friends: me.friends });
+  } catch (error) {
+    console.log("Lỗi xóa bạn: " + error.message);
+    return res.status(500).json({ message: "Lỗi hệ thống" });
+  }
+};
+
 
 export const getMessages = async (req, res) => {
   try {

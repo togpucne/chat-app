@@ -187,7 +187,11 @@ const Sidebar = () => {
             const bPinned = localStorage.getItem(`pin_conv_${authUser._id}_${b._id}`) === "true";
             if (aPinned && !bPinned) return -1;
             if (!aPinned && bPinned) return 1;
-            return 0;
+            
+            // Under pinned, sort by last message timestamp descending
+            const aTime = a.lastMessage ? new Date(a.lastMessage.createdAt).getTime() : 0;
+            const bTime = b.lastMessage ? new Date(b.lastMessage.createdAt).getTime() : 0;
+            return bTime - aTime;
         });
 
     if (isUsersLoading) {

@@ -1,11 +1,12 @@
 import express from "express";
 import { protectRoute } from "../middleware/auth.middleware.js";
-import { getUsersForSidebar, getMessages, sendMessage, deleteOrRecallMessage, pinMessage, reactMessage, searchByPhone, sendFriendRequest, acceptFriendRequest, rejectFriendRequest, createGroup, addGroupMembers, removeGroupMember, leaveGroup, updateGroup } from "../controllers/message.controller.js";
+import { getUsersForSidebar, getMessages, sendMessage, deleteOrRecallMessage, pinMessage, reactMessage, searchByPhone, sendFriendRequest, acceptFriendRequest, rejectFriendRequest, unfriendUser, createGroup, addGroupMembers, removeGroupMember, leaveGroup, updateGroup } from "../controllers/message.controller.js";
 const router = express.Router();
 router.get("/search-phone", protectRoute, searchByPhone);
 router.post("/friend-request/:id", protectRoute, sendFriendRequest);
 router.post("/accept-friend/:id", protectRoute, acceptFriendRequest);
 router.post("/reject-friend/:id", protectRoute, rejectFriendRequest);
+router.post("/unfriend/:id", protectRoute, unfriendUser);
 
 router.get("/users", protectRoute, getUsersForSidebar);
 router.post("/groups", protectRoute, createGroup);

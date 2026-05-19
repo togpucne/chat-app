@@ -170,6 +170,7 @@ const ChatContainer = () => {
     // Search and Sidebar states
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const [searchDate, setSearchDate] = useState("");
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [showAllTextResults, setShowAllTextResults] = useState(false);
     const [showAllFileResults, setShowAllFileResults] = useState(false);
@@ -369,6 +370,12 @@ const ChatContainer = () => {
 
     }, [selectedUser._id, getMessages, subscribeToMessages, unsubscribeFromMessages]);
 
+    useEffect(() => {
+        const handleOpenImage = (e) => setViewingImage(e.detail);
+        window.addEventListener("open-image-viewer", handleOpenImage);
+        return () => window.removeEventListener("open-image-viewer", handleOpenImage);
+    }, []);
+
     // Tự động cuộn xuống khi có tin nhắn mới hoặc trạng thái đang nhập thay đổi
     useEffect(() => {
         if (messageEndRef.current) {
@@ -407,21 +414,47 @@ const ChatContainer = () => {
         return groups;
     };
 
-    const textResults = searchQuery.trim() !== "" 
+    const textResults = (searchQuery.trim() !== "" || searchDate.trim() !== "")
         ? messages.filter(msg => {
             if (msg.isRecalled) return false;
             const hasFile = msg.file && msg.file.url;
-            if (msg.text && msg.text.toLowerCase().includes(searchQuery.toLowerCase()) && !hasFile) return true;
-            return false;
+            
+            let matchQuery = true;
+            if (searchQuery.trim() !== "") {
+                 matchQuery = msg.text && msg.text.toLowerCase().includes(searchQuery.toLowerCase()) && !hasFile;
+            } else {
+                 matchQuery = msg.text && !hasFile; 
+            }
+
+            let matchDate = true;
+            if (searchDate.trim() !== "") {
+                 const msgDate = new Date(msg.createdAt).toISOString().split('T')[0];
+                 matchDate = msgDate === searchDate;
+            }
+
+            return matchQuery && matchDate;
           })
         : [];
 
-    const fileResults = searchQuery.trim() !== "" 
+    const fileResults = (searchQuery.trim() !== "" || searchDate.trim() !== "")
         ? messages.filter(msg => {
             if (msg.isRecalled) return false;
             const hasFile = msg.file && msg.file.url;
-            if (hasFile && msg.file.name && msg.file.name.toLowerCase().includes(searchQuery.toLowerCase())) return true;
-            return false;
+            
+            let matchQuery = true;
+            if (searchQuery.trim() !== "") {
+                 matchQuery = hasFile && msg.file.name && msg.file.name.toLowerCase().includes(searchQuery.toLowerCase());
+            } else {
+                 matchQuery = hasFile;
+            }
+
+            let matchDate = true;
+            if (searchDate.trim() !== "") {
+                 const msgDate = new Date(msg.createdAt).toISOString().split('T')[0];
+                 matchDate = msgDate === searchDate;
+            }
+
+            return matchQuery && matchDate;
           })
         : [];
 
@@ -1757,6 +1790,7 @@ const ChatContainer = () => {
                             onClick={() => {
                                 setIsSearchOpen(false);
                                 setSearchQuery("");
+                                setSearchDate("");
                                 setShowAllTextResults(false);
                                 setShowAllFileResults(false);
                             }}
@@ -1796,26 +1830,41 @@ const ChatContainer = () => {
                             )}
                         </div>
 
-                        {/* Filter by: Sender / Date (Mock dropdown style) */}
+                        {/* Filter by Date */}
                         <div className="flex items-center gap-1.5 text-[11px] text-base-content/70">
                             <span>Lọc theo:</span>
-                            <div className="dropdown dropdown-bottom">
-                                <label tabIndex={0} className="flex items-center gap-1 bg-base-200 border border-base-300/80 px-2.5 py-0.5 rounded cursor-pointer hover:bg-base-300 transition-colors font-medium text-[10px]">
-                                    <Calendar className="size-3 text-base-content/60" /> Ngày gửi <ChevronDown className="size-3" />
-                                </label>
+                            <div className="relative">
+                                <input 
+                                    type="date"
+                                    value={searchDate}
+                                    onChange={(e) => {
+                                        setSearchDate(e.target.value);
+                                        setShowAllTextResults(false);
+                                        setShowAllFileResults(false);
+                                    }}
+                                    className="bg-base-200 border border-base-300/80 px-2 py-0.5 rounded cursor-pointer hover:bg-base-300 transition-colors font-medium text-[10px] focus:outline-none focus:border-primary"
+                                />
+                                {searchDate && (
+                                    <button 
+                                        onClick={() => setSearchDate("")}
+                                        className="absolute right-6 top-1/2 -translate-y-1/2 text-base-content/50 hover:text-red-500 bg-base-200"
+                                    >
+                                        <X className="size-3" />
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
 
                     {/* Search Results list */}
                     <div className="flex-1 overflow-y-auto bg-base-50/10">
-                        {searchQuery.trim() === "" ? (
+                        {searchQuery.trim() === "" && searchDate.trim() === "" ? (
                             <div className="text-center py-12 text-base-content/40 text-xs italic px-6">
-                                Nhập từ khóa để tìm kiếm tin nhắn trong cuộc trò chuyện này
+                                Nhập từ khóa hoặc chọn ngày để tìm kiếm tin nhắn trong cuộc trò chuyện này
                             </div>
                         ) : (textResults.length === 0 && fileResults.length === 0) ? (
                             <div className="text-center py-12 text-base-content/40 text-xs italic px-6">
-                                Không tìm thấy kết quả nào khớp với "{searchQuery}"
+                                Không tìm thấy kết quả nào khớp với {searchQuery ? `"${searchQuery}"` : "ngày đã chọn"}
                             </div>
                         ) : (
                             <div className="p-3 space-y-6">
