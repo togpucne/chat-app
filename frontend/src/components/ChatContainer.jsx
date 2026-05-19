@@ -7,7 +7,8 @@ import toast from "react-hot-toast";
 import { useAuthStore } from "../store/useAuthStore";
 import { GroupAvatar } from "./GroupAvatar";
 import { formatMessageTime } from "../lib/utils";
-import { MoreVertical, Pin, X, Paperclip, RotateCcw, RotateCw, Download, Search, Trash2, Ban, Bell, BellOff, Link2, FileText, Image, Globe, Check, Calendar, ChevronDown, Reply, Copy, Share2, RefreshCw, Target, CheckSquare, UserPlus, LogOut, UserMinus, Loader2, Users, Pencil, Camera } from "lucide-react";
+import { MoreVertical, Pin, X, Paperclip, RotateCcw, RotateCw, Download, Search, Trash2, Ban, Bell, BellOff, Link2, FileText, Image, Globe, Check, Calendar, ChevronDown, Reply, Copy, Share2, RefreshCw, Target, CheckSquare, UserPlus, LogOut, UserMinus, Loader2, Users, Pencil, Camera, Video, Phone, VideoOff, PhoneOff } from "lucide-react";
+import { formatCallDurationVi, parseCallCompleted } from "../lib/callMessage";
 
 // Kiểm tra 2 tin nhắn có được gửi ở 2 ngày khác nhau hay không
 const isDifferentDay = (msg1, msg2) => {
@@ -127,7 +128,7 @@ const renderFormattedText = (text, searchQuery = "") => {
 };
 
 const ChatContainer = () => {
-    const { messages, getMessages, isMessagesLoading, selectedUser, subscribeToMessages, unsubscribeFromMessages, deleteMessage, setReplyingTo, pinMessage, reactMessage, clearMessages, users, forwardMessages, removeGroupMember, leaveGroup, addGroupMembers, updateGroup } = useChatStore();
+    const { messages, getMessages, isMessagesLoading, selectedUser, subscribeToMessages, unsubscribeFromMessages, deleteMessage, setReplyingTo, pinMessage, reactMessage, clearMessages, users, forwardMessages, removeGroupMember, leaveGroup, addGroupMembers, updateGroup, initiateCall } = useChatStore();
     const { authUser, onlineUsers, sendFriendRequest, acceptFriendRequest, rejectFriendRequest } = useAuthStore();
     const messageEndRef = useRef(null);
     const fileInputRef = useRef(null);
@@ -930,11 +931,78 @@ const ChatContainer = () => {
 
                                         {/* Text bubble, reply context, or recalled - standard Zalo colored bubble */}
                                         {(message.text || message.isRecalled || message.replyTo) && (
-                                            <div className={`flex flex-col relative py-2.5 px-4 rounded-2xl shadow-sm text-[14px] leading-relaxed max-w-full overflow-visible transition-all duration-200 ${
-                                                isMyMessage 
-                                                    ? "bg-[#e1f0ff] border border-[#cbe3ff] text-[#081c36] rounded-tr-none" 
-                                                    : "bg-white border border-[#e4e6eb] text-[#1c1e21] rounded-tl-none"
-                                            } ${message.isRecalled ? "bg-base-200/50 text-base-content/40 italic border-slate-200 shadow-none" : ""} ${message.isPinned ? "border-primary/50 ring-1 ring-primary/20" : ""}`}>
+                                            (() => {
+                                                const isMissedCall = message.text && (message.text.startsWith("[CALL_VIDEO_MISSED]") || message.text.startsWith("[CALL_AUDIO_MISSED]"));
+                                                if (isMissedCall) {
+                                                    const isVideo = message.text.includes("VIDEO");
+                                                    return (
+                                                        <div className="flex flex-col bg-slate-100/90 text-slate-800 border border-slate-200/80 rounded-2xl p-4 shadow-sm max-w-[280px] select-none hover:shadow-md transition-shadow relative">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="size-10 rounded-full bg-slate-200/80 flex items-center justify-center text-slate-600 flex-shrink-0">
+                                                                    {isVideo ? (
+                                                                        <VideoOff className="size-5 text-red-500" />
+                                                                    ) : (
+                                                                        <PhoneOff className="size-5 text-red-500" />
+                                                                    )}
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <h4 className="font-bold text-sm text-slate-800 tracking-wide truncate">
+                                                                        {isVideo ? "Đã bỏ lỡ cuộc gọi video" : "Đã bỏ lỡ cuộc gọi thoại"}
+                                                                    </h4>
+                                                                    <span className="text-[11px] text-slate-500 font-semibold mt-0.5 block">
+                                                                        {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                            <button 
+                                                                onClick={() => initiateCall(isVideo ? "video" : "audio", false)}
+                                                                className="w-full mt-3 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-slate-800 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-98"
+                                                            >
+                                                                Gọi lại
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                const completedCall = !message.isRecalled && message.text ? parseCallCompleted(message.text) : null;
+                                                if (completedCall) {
+                                                    const isVideo = completedCall.media === "video";
+                                                    return (
+                                                        <div className="flex flex-col bg-slate-100/90 text-slate-800 border border-slate-200/80 rounded-2xl p-4 shadow-sm max-w-[280px] select-none hover:shadow-md transition-shadow relative">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="size-10 rounded-full bg-slate-200/80 flex items-center justify-center text-slate-800 flex-shrink-0 border border-slate-300/60">
+                                                                    {isVideo ? (
+                                                                        <Video className="size-5 text-slate-800" />
+                                                                    ) : (
+                                                                        <Phone className="size-5 text-slate-800" />
+                                                                    )}
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <h4 className="font-bold text-sm text-slate-800 tracking-wide truncate">
+                                                                        {isVideo ? "Cuộc gọi video" : "Cuộc gọi thoại"}
+                                                                    </h4>
+                                                                    <span className="text-[11px] text-slate-500 font-semibold mt-0.5 block">
+                                                                        {formatCallDurationVi(completedCall.seconds)}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => initiateCall(isVideo ? "video" : "audio", false)}
+                                                                className="w-full mt-3 py-2.5 bg-slate-200/90 hover:bg-slate-200 border border-slate-300/80 text-slate-900 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-98"
+                                                            >
+                                                                Gọi lại
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                return (
+                                                    <div className={`flex flex-col relative py-2.5 px-4 rounded-2xl shadow-sm text-[14px] leading-relaxed max-w-full overflow-visible transition-all duration-200 ${
+                                                        isMyMessage 
+                                                            ? "bg-[#e1f0ff] border border-[#cbe3ff] text-[#081c36] rounded-tr-none" 
+                                                            : "bg-white border border-[#e4e6eb] text-[#1c1e21] rounded-tl-none"
+                                                    } ${message.isRecalled ? "bg-base-200/50 text-base-content/40 italic border-slate-200 shadow-none" : ""} ${message.isPinned ? "border-primary/50 ring-1 ring-primary/20" : ""}`}>
                                                 
                                                 {/* Pinned mini status inside bubble */}
                                                 {message.isPinned && (
@@ -1029,7 +1097,9 @@ const ChatContainer = () => {
                                                     </>
                                                 )}
                                             </div>
-                                        )}
+                                        );
+                                    })()
+                                )}
 
                                         {/* Distinct Emoji Reaction Pill */}
                                         {message.reactions && message.reactions.length > 0 && (

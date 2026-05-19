@@ -1,4 +1,4 @@
-import { X, Search, Info, UserPlus, Loader2, UserMinus, Phone, MessageSquare, LogOut, Pencil, Globe, FileText, Link2, Camera, Target } from "lucide-react";
+import { X, Search, Info, UserPlus, Loader2, UserMinus, Phone, Video, MessageSquare, LogOut, Pencil, Globe, FileText, Link2, Camera, Target } from "lucide-react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useAuthStore } from "../store/useAuthStore";
@@ -23,16 +23,52 @@ const formatLastActive = (updatedAt, isOnline) => {
 };
 
 const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOpen, onOpenAddMember }) => {
-    const { selectedUser, setSelectedUser, leaveGroup, messages, updateGroup } = useChatStore();
+    const { selectedUser, setSelectedUser, leaveGroup, messages, updateGroup, initiateCall, groupCalls, joinGroupCall, activeCall } = useChatStore();
     const { onlineUsers, authUser, unfriend } = useAuthStore();
     
     const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+    const [isCreateCallModalOpen, setIsCreateCallModalOpen] = useState(false);
+    const [callType, setCallType] = useState("video");
+    const [selectedMembers, setSelectedMembers] = useState([]);
+    const [memberSearchQuery, setMemberSearchQuery] = useState("");
     
     const isGroup = selectedUser?.isGroup;
     const isFriend = !isGroup && authUser?.friends?.some(id => (typeof id === "object" ? id._id : id).toString() === selectedUser?._id?.toString());
 
+    const ongoingGroupCall = isGroup ? groupCalls[selectedUser?._id] : null;
+    const isInGroupCall =
+        ongoingGroupCall?.participants?.some(
+            (p) => p.userId?.toString() === authUser?._id?.toString()
+        ) || (activeCall?.isGroup && activeCall?.receiverId === selectedUser?._id && activeCall?.status === "connected");
+
+    const onlineMemberCount = isGroup
+        ? (selectedUser?.members || []).filter((m) => {
+              const id = (typeof m === "object" ? m._id : m)?.toString();
+              return onlineUsers.some((ou) => ou?.toString() === id);
+          }).length
+        : 0;
+
     return (
         <div className="p-3 border-b border-base-300 bg-base-100/90 backdrop-blur-sm select-none relative">
+            {ongoingGroupCall && !isInGroupCall && !activeCall && (
+                <div className="mb-2 flex items-center justify-between gap-2 rounded-xl bg-green-50 border border-green-200 px-3 py-2 animate-fade-in">
+                    <div className="min-w-0">
+                        <p className="text-xs font-bold text-green-800">
+                            Cuộc gọi {ongoingGroupCall.type === "video" ? "video" : "thoại"} đang diễn ra
+                        </p>
+                        <p className="text-[11px] text-green-700 truncate">
+                            {ongoingGroupCall.participants?.length || 0} người đang tham gia
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => joinGroupCall(selectedUser._id)}
+                        className="btn btn-sm bg-green-600 hover:bg-green-700 text-white border-none rounded-lg font-bold shrink-0"
+                    >
+                        Tham gia
+                    </button>
+                </div>
+            )}
             <div className="flex items-center justify-between">
                 {/* Clickable Info Area */}
                 <div 
@@ -63,7 +99,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                         </div>
                         <p className="text-xs text-base-content/50 truncate mt-0.5">
                             {isGroup ? (
-                                `Nhóm • ${selectedUser.members?.length || 0} thành viên`
+                                `${onlineMemberCount} đang hoạt động · ${selectedUser.members?.length || 0} thành viên`
                             ) : isFriend ? (
                                 formatLastActive(selectedUser.updatedAt, onlineUsers.includes(selectedUser._id))
                             ) : (
@@ -85,6 +121,42 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                             <UserPlus className="size-4" />
                         </button>
                     )}
+
+                    {/* Audio Call button */}
+                    <button 
+                        onClick={() => {
+                            if (isGroup) {
+                                setCallType("audio");
+                                setSelectedMembers([]);
+                                setMemberSearchQuery("");
+                                setIsCreateCallModalOpen(true);
+                            } else {
+                                initiateCall("audio", false);
+                            }
+                        }}
+                        className="btn btn-ghost btn-circle btn-sm text-base-content/60 hover:text-base-content"
+                        title="Cuộc gọi thoại"
+                    >
+                        <Phone className="size-4" />
+                    </button>
+
+                    {/* Video Call button */}
+                    <button 
+                        onClick={() => {
+                            if (isGroup) {
+                                setCallType("video");
+                                setSelectedMembers([]);
+                                setMemberSearchQuery("");
+                                setIsCreateCallModalOpen(true);
+                            } else {
+                                initiateCall("video", false);
+                            }
+                        }}
+                        className="btn btn-ghost btn-circle btn-sm text-base-content/60 hover:text-base-content"
+                        title="Cuộc gọi video"
+                    >
+                        <Video className="size-4" />
+                    </button>
 
                     {/* Search button */}
                     <button 
@@ -194,7 +266,8 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                                             </button>
                                             <button 
                                                 onClick={() => {
-                                                    toast.success("Tính năng gọi điện đang được tích hợp. Vui lòng quay lại sau!", { icon: "📞" });
+                                                    setIsInfoModalOpen(false);
+                                                    initiateCall("audio", false);
                                                 }}
                                                 className="btn bg-slate-700 text-white hover:bg-slate-800 border-none rounded-lg font-semibold text-[14px] h-10 min-h-10 flex items-center justify-center gap-1.5"
                                             >
@@ -501,6 +574,138 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                                     </button>
                                 </div>
                             )}
+                        </div>
+                    </div>
+                </div>
+            , document.body)}
+
+            {/* Create Group Call Modal */}
+            {isCreateCallModalOpen && createPortal(
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center animate-fade-in p-4 select-none">
+                    <div className="bg-white text-slate-800 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl animate-scale-up flex flex-col max-h-[90vh]">
+                        {/* Title Header */}
+                        <div className="p-4 flex items-center justify-between border-b border-slate-100">
+                            <h3 className="font-bold text-[17px] text-slate-800">Tạo cuộc gọi</h3>
+                            <button 
+                                onClick={() => setIsCreateCallModalOpen(false)}
+                                className="btn btn-ghost btn-circle btn-sm text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                            >
+                                <X className="size-5" />
+                            </button>
+                        </div>
+
+                        {/* Search Box */}
+                        <div className="p-3 border-b border-slate-100 relative">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+                                <input 
+                                    type="text" 
+                                    placeholder="Tìm kiếm thành viên" 
+                                    value={memberSearchQuery}
+                                    onChange={(e) => setMemberSearchQuery(e.target.value)}
+                                    className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-full text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white transition-all placeholder-slate-400"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Alphabetically Grouped Members List */}
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[50vh]">
+                            {(() => {
+                                const callCandidates = (selectedUser?.members || []).filter(member => {
+                                    const mId = typeof member === "object" ? member._id : member;
+                                    return mId?.toString() !== authUser?._id?.toString();
+                                });
+
+                                const filteredCandidates = callCandidates.filter(member => {
+                                    const name = typeof member === "object" ? member.fullName : "Thành viên";
+                                    return name.toLowerCase().includes(memberSearchQuery.toLowerCase());
+                                });
+
+                                if (filteredCandidates.length === 0) {
+                                    return (
+                                        <div className="text-center py-8 text-slate-400 text-sm">
+                                            Không tìm thấy thành viên phù hợp
+                                        </div>
+                                    );
+                                }
+
+                                const groupedCandidates = filteredCandidates.reduce((acc, member) => {
+                                    const name = typeof member === "object" ? member.fullName : "Thành viên";
+                                    const firstLetter = name.trim().charAt(0).toUpperCase();
+                                    if (!acc[firstLetter]) acc[firstLetter] = [];
+                                    acc[firstLetter].push(member);
+                                    return acc;
+                                }, {});
+
+                                const sortedKeys = Object.keys(groupedCandidates).sort();
+
+                                return sortedKeys.map(key => (
+                                    <div key={key} className="space-y-2">
+                                        <h4 className="text-[13px] font-bold text-slate-500 pl-1">{key}</h4>
+                                        <div className="space-y-1">
+                                            {groupedCandidates[key].map(member => {
+                                                const mId = typeof member === "object" ? member._id : member;
+                                                const mName = typeof member === "object" ? member.fullName : "Thành viên";
+                                                const mPic = typeof member === "object" ? member.profilePic : "/avatar.png";
+                                                const isSelected = selectedMembers.includes(mId);
+
+                                                return (
+                                                    <div 
+                                                        key={mId}
+                                                        onClick={() => {
+                                                            setSelectedMembers(prev => 
+                                                                isSelected 
+                                                                    ? prev.filter(id => id !== mId)
+                                                                    : [...prev, mId]
+                                                            );
+                                                        }}
+                                                        className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors"
+                                                    >
+                                                        {/* Circular Checkbox */}
+                                                        <div className={`size-5 rounded-full border-2 flex items-center justify-center transition-all ${isSelected ? 'border-primary bg-primary text-white' : 'border-slate-300 bg-white'}`}>
+                                                            {isSelected && (
+                                                                <svg className="size-3 fill-current stroke-current stroke-2" viewBox="0 0 24 24">
+                                                                    <path d="M20.285 2l-11.285 11.567-5.286-5.011-3.714 3.716 9 8.728 15-15.285z" />
+                                                                </svg>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Avatar */}
+                                                        <img 
+                                                            src={mPic || "/avatar.png"} 
+                                                            alt={mName} 
+                                                            className="size-10 rounded-full object-cover border border-slate-100 shadow-sm"
+                                                        />
+
+                                                        {/* Full Name */}
+                                                        <span className="font-semibold text-sm text-slate-700">{mName}</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ));
+                            })()}
+                        </div>
+
+                        {/* Footer Controls */}
+                        <div className="p-4 bg-slate-50 flex items-center justify-end gap-3 border-t border-slate-100">
+                            <button 
+                                onClick={() => setIsCreateCallModalOpen(false)}
+                                className="btn border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-300 rounded-lg px-6 font-semibold text-[14px]"
+                            >
+                                Hủy
+                            </button>
+                            <button 
+                                disabled={selectedMembers.length === 0}
+                                onClick={() => {
+                                    setIsCreateCallModalOpen(false);
+                                    initiateCall(callType, true, selectedMembers);
+                                }}
+                                className={`btn border-none rounded-lg px-6 font-semibold text-[14px] ${selectedMembers.length > 0 ? 'bg-[#0068ff] hover:bg-[#005AE6] text-white' : 'bg-blue-200 text-white cursor-not-allowed shadow-none'}`}
+                            >
+                                Gọi
+                            </button>
                         </div>
                     </div>
                 </div>

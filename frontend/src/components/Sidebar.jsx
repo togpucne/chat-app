@@ -6,6 +6,8 @@ import { Users, BellOff, Pin, Search, Phone, X, Loader2, UserPlus, Camera, Check
 import { axiosInstance } from "../lib/axios";
 import toast from "react-hot-toast";
 import { GroupAvatar } from "./GroupAvatar";
+import { formatCallSystemText } from "../lib/callMessage";
+import { normId } from "../lib/utils";
 
 const formatMessageTime = (createdAt) => {
     if (!createdAt) return "";
@@ -73,6 +75,13 @@ const getMessagePreview = (msg) => {
     if (msg.isRecalled) return "Tin nhắn đã thu hồi";
     if (msg.image) return "[Hình ảnh]";
     if (msg.file && msg.file.url) return `[Tệp đính kèm] ${msg.file.name || ""}`;
+    
+    if (msg.text) {
+        const callLabel = formatCallSystemText(msg.text);
+        if (callLabel) return callLabel;
+        return stripHtmlTags(msg.text);
+    }
+    
     return stripHtmlTags(msg.text || "");
 };
 
@@ -272,9 +281,13 @@ const Sidebar = () => {
                     </div>
                 ) : (
                     filteredUsers.map((user) => {
-                        const isMuted = authUser && localStorage.getItem(`muted_${authUser._id}_${user._id}`) === "true";
-                        const isPinned = authUser && localStorage.getItem(`pin_conv_${authUser._id}_${user._id}`) === "true";
-                        const isFriend = authUser?.friends?.includes(user._id);
+                        const userKey = normId(user._id);
+                        const unread = unreadCounts[userKey] || 0;
+                        const isMuted = authUser && localStorage.getItem(`muted_${normId(authUser._id)}_${userKey}`) === "true";
+                        const isPinned = authUser && localStorage.getItem(`pin_conv_${normId(authUser._id)}_${userKey}`) === "true";
+                        const isFriend = authUser?.friends?.some(
+                            (f) => normId(typeof f === "object" ? f._id : f) === userKey
+                        );
                         return (
                             <button
                                 key={user._id}
@@ -301,9 +314,9 @@ const Sidebar = () => {
                                         <span className="absolute -top-1 -right-1 flex items-center justify-center size-5 bg-base-300 text-base-content/60 rounded-full shadow-sm z-20 lg:hidden">
                                             <BellOff className="size-3" />
                                         </span>
-                                    ) : unreadCounts[user._id] > 0 ? (
+                                    ) : unread > 0 ? (
                                         <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-5 h-5 px-1 bg-red-500 text-white text-[10px] font-black rounded-full shadow-sm z-20 lg:hidden animate-pulse">
-                                            {unreadCounts[user._id] > 5 ? "5+" : unreadCounts[user._id]}
+                                            {unread > 99 ? "99+" : unread > 5 ? "5+" : unread}
                                         </span>
                                     ) : null}
                                 </div>
@@ -339,11 +352,11 @@ const Sidebar = () => {
                                                 {isPinned && <Pin className="size-3 text-slate-400 fill-slate-400" />}
                                                 <BellOff className="size-4 text-zinc-400" />
                                             </div>
-                                        ) : unreadCounts[user._id] > 0 ? (
+                                        ) : unread > 0 ? (
                                             <div className="flex items-center mr-2 gap-1.5">
                                                 {isPinned && <Pin className="size-3 text-slate-400 fill-slate-400" />}
                                                 <span className="flex items-center justify-center min-w-5 h-5 px-1.5 bg-red-500 text-white text-[10px] font-black rounded-full shadow-sm animate-pulse">
-                                                    {unreadCounts[user._id] > 5 ? "5+" : unreadCounts[user._id]}
+                                                    {unread > 99 ? "99+" : unread > 5 ? "5+" : unread}
                                                 </span>
                                             </div>
                                         ) : (

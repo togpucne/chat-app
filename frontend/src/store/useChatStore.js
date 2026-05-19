@@ -2,6 +2,25 @@ import { create } from "zustand";
 import toast from "react-hot-toast";
 import { axiosInstance } from "../lib/axios";
 import { useAuthStore } from "./useAuthStore";
+import { formatGroupLastMessagePreview } from "../lib/callMessage";
+import { normId } from "../lib/utils";
+
+const loadUnreadCounts = () => {
+    try {
+        const raw = JSON.parse(localStorage.getItem("unread_counts") || "{}");
+        const normalized = {};
+        Object.entries(raw).forEach(([k, v]) => {
+            normalized[normId(k)] = v;
+        });
+        return normalized;
+    } catch {
+        return {};
+    }
+};
+
+const persistUnreadCounts = (counts) => {
+    localStorage.setItem("unread_counts", JSON.stringify(counts));
+};
 
 export const useChatStore = create((set, get) => ({
     messages: [],
@@ -10,7 +29,10 @@ export const useChatStore = create((set, get) => ({
     isUsersLoading: false,
     isMessagesLoading: false,
     replyingTo: null,
-    unreadCounts: JSON.parse(localStorage.getItem("unread_counts") || "{}"),
+    unreadCounts: loadUnreadCounts(),
+    activeCall: null,
+    /** groupId -> ongoing call snapshot from server */
+    groupCalls: {},
 
     setReplyingTo: (message) => set({ replyingTo: message }),
 
@@ -22,11 +44,14 @@ export const useChatStore = create((set, get) => ({
             // Sync unreadCounts dynamically from backend response database states
             const counts = { ...get().unreadCounts };
             res.data.forEach((user) => {
-                counts[user._id] = user.unreadCount || 0;
+                const key = normId(user._id);
+                const local = counts[key] || 0;
+                // Groups: unread is client-side only; DMs: trust server count
+                counts[key] = user.isGroup ? local : (user.unreadCount || 0);
             });
             
             set({ users: res.data, unreadCounts: counts });
-            localStorage.setItem("unread_counts", JSON.stringify(counts));
+            persistUnreadCounts(counts);
         } catch (error) {
             toast.error(error.response.data.message);
         } finally {
@@ -41,11 +66,12 @@ export const useChatStore = create((set, get) => ({
             set({ messages: res.data });
             
             // Clear unread counts for this user upon reading messages
+            const key = normId(userId);
             const counts = { ...get().unreadCounts };
-            if (counts[userId]) {
-                delete counts[userId];
+            if (counts[key]) {
+                delete counts[key];
                 set({ unreadCounts: counts });
-                localStorage.setItem("unread_counts", JSON.stringify(counts));
+                persistUnreadCounts(counts);
             }
             
             // Notify active chat socket
@@ -161,15 +187,19 @@ export const useChatStore = create((set, get) => ({
         const socket = useAuthStore.getState().socket;
         if (!socket) return;
         socket.on("newMessage", (newMessage) => {
-            const senderId = typeof newMessage.senderId === "object" ? newMessage.senderId?._id : newMessage.senderId;
-            const isGroupMsg = newMessage.isGroup || get().users.some(u => u._id === newMessage.receiverId && u.isGroup);
-            
+            const senderId = normId(
+                typeof newMessage.senderId === "object" ? newMessage.senderId?._id : newMessage.senderId
+            );
+            const isGroupMsg =
+                newMessage.isGroup ||
+                get().users.some((u) => normId(u._id) === normId(newMessage.receiverId) && u.isGroup);
+
             const isRelevant = isGroupMsg
-                ? (selectedUser.isGroup && newMessage.receiverId === selectedUser._id)
-                : (!selectedUser.isGroup && (
-                    senderId === selectedUser._id ||
-                    (senderId === useAuthStore.getState().authUser?._id && newMessage.receiverId === selectedUser._id)
-                  ));
+                ? selectedUser.isGroup && normId(newMessage.receiverId) === normId(selectedUser._id)
+                : !selectedUser.isGroup &&
+                  (senderId === normId(selectedUser._id) ||
+                      (senderId === normId(useAuthStore.getState().authUser?._id) &&
+                          normId(newMessage.receiverId) === normId(selectedUser._id)));
             
             if (!isRelevant) return;
 
@@ -275,63 +305,218 @@ export const useChatStore = create((set, get) => ({
         socket.off("groupCreated");
         socket.off("groupUpdated");
         
+        socket.off("groupCallParticipantLeft");
+        socket.off("newMessage");
+        
+        socket.on("incomingCall", (callData) => {
+            if (callData.isGroup && callData.receiverId) {
+                set({
+                    groupCalls: {
+                        ...get().groupCalls,
+                        [callData.receiverId]: {
+                            callId: callData.callId,
+                            groupId: callData.receiverId,
+                            type: callData.type,
+                            hostId: callData.callerId,
+                            receiverName: callData.receiverName,
+                            receiverAvatar: callData.receiverAvatar,
+                            participants: callData.participants || [],
+                        },
+                    },
+                });
+            }
+            set({
+                activeCall: {
+                    ...callData,
+                    status: "ringing",
+                    isIncoming: true,
+                },
+            });
+        });
+
+        socket.on("callAccepted", () => {
+            const { activeCall } = get();
+            if (activeCall) {
+                set({
+                    activeCall: {
+                        ...activeCall,
+                        status: "connected"
+                    }
+                });
+            }
+        });
+
+        socket.on("callRejected", () => {
+            const { activeCall } = get();
+            if (activeCall) {
+                set({
+                    activeCall: {
+                        ...activeCall,
+                        status: "disconnected",
+                        endedReason: "Đã từ chối cuộc gọi"
+                    }
+                });
+            }
+        });
+
+        socket.on("callEnded", () => {
+            const { activeCall } = get();
+            if (activeCall?.isGroup) return;
+            if (activeCall) {
+                const wasRinging = activeCall.status === "ringing" && activeCall.isIncoming;
+                set({
+                    activeCall: {
+                        ...activeCall,
+                        status: "disconnected",
+                        endedReason: "Cuộc gọi đã kết thúc"
+                    }
+                });
+                if (wasRinging) {
+                    get().logMissedCall();
+                }
+            }
+        });
+
+        socket.on("groupCallState", (state) => {
+            if (!state?.groupId) return;
+            set({ groupCalls: { ...get().groupCalls, [state.groupId]: state } });
+        });
+
+        socket.on("groupCallUpdated", (state) => {
+            if (!state?.groupId) return;
+            set({ groupCalls: { ...get().groupCalls, [state.groupId]: state } });
+            const { activeCall } = get();
+            if (activeCall?.isGroup && activeCall.receiverId === state.groupId) {
+                set({
+                    activeCall: {
+                        ...activeCall,
+                        callId: state.callId,
+                        type: state.type,
+                        participants: state.participants,
+                    },
+                });
+            }
+        });
+
+        socket.on("groupCallEnded", ({ groupId }) => {
+            const gc = { ...get().groupCalls };
+            delete gc[groupId];
+            set({ groupCalls: gc });
+            const { activeCall } = get();
+            if (activeCall?.isGroup && activeCall.receiverId === groupId) {
+                set({
+                    activeCall: {
+                        ...activeCall,
+                        status: "disconnected",
+                        endedReason: "Cuộc gọi nhóm đã kết thúc",
+                    },
+                });
+            }
+        });
+
+        socket.on("groupCallParticipantJoined", ({ groupId, participants }) => {
+            const { activeCall } = get();
+            if (activeCall?.isGroup && activeCall.receiverId === groupId) {
+                set({
+                    activeCall: { ...activeCall, participants },
+                });
+            }
+        });
+
+        socket.on("groupCallParticipantLeft", ({ groupId, participants }) => {
+            const gc = get().groupCalls[groupId];
+            if (gc) {
+                set({
+                    groupCalls: {
+                        ...get().groupCalls,
+                        [groupId]: { ...gc, participants },
+                    },
+                });
+            }
+            const { activeCall } = get();
+            if (activeCall?.isGroup && activeCall.receiverId === groupId) {
+                set({
+                    activeCall: { ...activeCall, participants },
+                });
+            }
+        });
+        
         socket.on("newMessage", (newMessage) => {
+            const authUser = useAuthStore.getState().authUser;
+            const myId = normId(authUser?._id);
+            const senderId = normId(
+                typeof newMessage.senderId === "object" ? newMessage.senderId?._id : newMessage.senderId
+            );
+            const receiverId = normId(newMessage.receiverId);
             const { selectedUser, users } = get();
-            const senderId = typeof newMessage.senderId === "object" ? newMessage.senderId?._id : newMessage.senderId;
-            
-            // Format lastMessage preview for group if it's a group message
+
+            const groupUser = users.find((u) => normId(u._id) === receiverId && u.isGroup);
+            const isGroupMsg = Boolean(newMessage.isGroup || groupUser);
+
             let updatedLastMessage = newMessage;
-            const groupUser = users.find(u => u._id === newMessage.receiverId);
-            if (groupUser && groupUser.isGroup) {
-                const senderName = senderId === useAuthStore.getState().authUser?._id ? "Bạn" : (newMessage.senderId?.fullName || "Thành viên");
+            if (groupUser) {
+                const senderName =
+                    senderId === myId ? "Bạn" : newMessage.senderId?.fullName || "Thành viên";
                 if (newMessage.text) {
-                    updatedLastMessage = { ...newMessage, text: `${senderName}: ${newMessage.text}` };
+                    updatedLastMessage = {
+                        ...newMessage,
+                        text: formatGroupLastMessagePreview(senderName, newMessage.text),
+                    };
                 } else if (newMessage.image) {
                     updatedLastMessage = { ...newMessage, text: `${senderName}: [Hình ảnh]` };
                 } else if (newMessage.file && newMessage.file.url) {
-                    updatedLastMessage = { ...newMessage, text: `${senderName}: [Tệp đính kèm] ${newMessage.file.name || ""}` };
+                    updatedLastMessage = {
+                        ...newMessage,
+                        text: `${senderName}: [Tệp đính kèm] ${newMessage.file.name || ""}`,
+                    };
                 }
             }
 
-            const isGroupMsg = newMessage.isGroup || (groupUser && groupUser.isGroup);
+            const chatKey = isGroupMsg ? receiverId : senderId;
 
-            // Real-time update lastMessage in sidebar list immediately on receive
-            const updatedUsers = users.map((u) => {
+            let updatedUsers = users.map((u) => {
+                const uid = normId(u._id);
                 const isMatch = isGroupMsg
-                    ? u._id === newMessage.receiverId
-                    : (u._id === senderId || u._id === newMessage.receiverId);
-
+                    ? uid === receiverId
+                    : uid === senderId || uid === receiverId;
                 if (isMatch) {
-                    return { ...u, lastMessage: updatedLastMessage };
+                    return {
+                        ...u,
+                        lastMessage: updatedLastMessage,
+                        updatedAt: newMessage.createdAt || u.updatedAt,
+                    };
                 }
                 return u;
             });
 
-            set({ users: updatedUsers });
+            updatedUsers.sort((a, b) => {
+                const ta = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
+                const tb = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
+                return tb - ta;
+            });
 
-            // Determine if the target chat is a group or direct user
-            const targetId = isGroupMsg ? newMessage.receiverId : senderId;
+            const viewingChat = selectedUser && normId(selectedUser._id) === chatKey;
+            let nextCounts = get().unreadCounts;
 
-            // Increment unread count only if we are not actively in their conversation and the sender is NOT ourselves
-            if (senderId !== useAuthStore.getState().authUser?._id) {
-                if (!selectedUser || selectedUser._id !== targetId) {
-                    const counts = { ...get().unreadCounts };
-                    counts[targetId] = (counts[targetId] || 0) + 1;
-                    set({ unreadCounts: counts });
-                    localStorage.setItem("unread_counts", JSON.stringify(counts));
-                    
-                    // Play simple notification chime if available only if NOT muted!
-                    const authUser = useAuthStore.getState().authUser;
-                    const isMuted = authUser && localStorage.getItem(`muted_${authUser._id}_${targetId}`) === "true";
-                    if (!isMuted) {
-                        try {
-                            const audio = new Audio("/notification.mp3");
-                            audio.volume = 0.4;
-                            audio.play().catch(() => {});
-                        } catch (e) {}
+            if (senderId !== myId && !viewingChat) {
+                nextCounts = { ...get().unreadCounts };
+                nextCounts[chatKey] = (nextCounts[chatKey] || 0) + 1;
+                persistUnreadCounts(nextCounts);
+
+                const isMuted =
+                    authUser && localStorage.getItem(`muted_${normId(authUser._id)}_${chatKey}`) === "true";
+                if (!isMuted) {
+                    try {
+                        const audio = new Audio("/notification.mp3");
+                        audio.volume = 0.4;
+                        audio.play().catch(() => {});
+                    } catch {
+                        /* ignore */
                     }
                 }
             }
+
+            set({ users: updatedUsers, unreadCounts: nextCounts });
         });
 
         socket.on("groupCreated", (newGroup) => {
@@ -434,17 +619,21 @@ export const useChatStore = create((set, get) => ({
         set({ selectedUser });
         if (selectedUser) {
             // Clear unread counts for this user!
+            const key = normId(selectedUser._id);
             const counts = { ...get().unreadCounts };
-            if (counts[selectedUser._id]) {
-                delete counts[selectedUser._id];
+            if (counts[key]) {
+                delete counts[key];
                 set({ unreadCounts: counts });
-                localStorage.setItem("unread_counts", JSON.stringify(counts));
+                persistUnreadCounts(counts);
             }
 
             const socket = useAuthStore.getState().socket;
             const authUser = useAuthStore.getState().authUser;
             if (socket && authUser) {
                 socket.emit("userOpenedChat", { openerId: authUser._id, recipientId: selectedUser._id });
+                if (selectedUser.isGroup) {
+                    socket.emit("getGroupCallState", { groupId: selectedUser._id });
+                }
             }
         }
     },
@@ -581,4 +770,303 @@ export const useChatStore = create((set, get) => ({
         }
     },
     clearMessages: () => set({ messages: [] }),
+
+    initiateCall: (type, isGroup = false, invitedUsers = []) => {
+        const { selectedUser } = get();
+        const authUser = useAuthStore.getState().authUser;
+        const socket = useAuthStore.getState().socket;
+        if (!selectedUser || !authUser || !socket) return;
+
+        if (isGroup) {
+            const existing = get().groupCalls[selectedUser._id];
+            if (existing?.participants?.length > 0) {
+                get().joinGroupCall(selectedUser._id);
+                return;
+            }
+
+            const allMemberIds = (selectedUser.members || [])
+                .map((m) => (typeof m === "object" ? m._id : m))
+                .filter((id) => id?.toString() !== authUser._id?.toString());
+            const targets = invitedUsers.length > 0 ? invitedUsers : allMemberIds;
+            const selfParticipant = {
+                userId: authUser._id,
+                fullName: authUser.fullName,
+                profilePic: authUser.profilePic || "",
+            };
+
+            socket.emit("startGroupCall", {
+                groupId: selectedUser._id,
+                type,
+                callerId: authUser._id,
+                callerName: authUser.fullName,
+                callerAvatar: authUser.profilePic,
+                receiverName: selectedUser.fullName,
+                receiverAvatar: selectedUser.profilePic,
+                invitedUsers: targets,
+            });
+
+            set({
+                activeCall: {
+                    callerId: authUser._id,
+                    callerName: authUser.fullName,
+                    callerAvatar: authUser.profilePic,
+                    receiverId: selectedUser._id,
+                    receiverName: selectedUser.fullName,
+                    receiverAvatar: selectedUser.profilePic,
+                    type,
+                    isGroup: true,
+                    invitedUsers: targets,
+                    participants: [selfParticipant],
+                    status: "connected",
+                    isIncoming: false,
+                },
+            });
+            return;
+        }
+
+        const callData = {
+            callerId: authUser._id,
+            callerName: authUser.fullName,
+            callerAvatar: authUser.profilePic,
+            receiverId: selectedUser._id,
+            receiverName: selectedUser.fullName,
+            receiverAvatar: selectedUser.profilePic,
+            type,
+            isGroup: false,
+            invitedUsers: [selectedUser._id],
+        };
+
+        set({
+            activeCall: {
+                ...callData,
+                status: "ringing",
+                isIncoming: false,
+            },
+        });
+
+        socket.emit("callUser", callData);
+    },
+
+    joinGroupCall: (groupId) => {
+        const authUser = useAuthStore.getState().authUser;
+        const socket = useAuthStore.getState().socket;
+        if (!authUser || !socket) return;
+
+        const room = get().groupCalls[groupId];
+        const group =
+            get().users.find((u) => u._id === groupId) ||
+            (get().selectedUser?._id === groupId ? get().selectedUser : null);
+        if (!room) {
+            socket.emit("getGroupCallState", { groupId });
+            toast.error("Không tìm thấy cuộc gọi nhóm đang hoạt động");
+            return;
+        }
+
+        const alreadyIn = room.participants?.some(
+            (p) => p.userId?.toString() === authUser._id?.toString()
+        );
+        if (!alreadyIn) {
+            socket.emit("joinGroupCall", {
+                groupId,
+                userId: authUser._id,
+                fullName: authUser.fullName,
+                profilePic: authUser.profilePic,
+            });
+        }
+
+        const selfParticipant = {
+            userId: authUser._id,
+            fullName: authUser.fullName,
+            profilePic: authUser.profilePic || "",
+        };
+        const participants = alreadyIn
+            ? room.participants
+            : [...(room.participants || []), selfParticipant];
+
+        set({
+            activeCall: {
+                callerId: room.hostId,
+                receiverId: groupId,
+                receiverName: group?.fullName || room.receiverName,
+                receiverAvatar: group?.profilePic || room.receiverAvatar,
+                type: room.type,
+                isGroup: true,
+                callId: room.callId,
+                participants,
+                status: "connected",
+                isIncoming: false,
+            },
+        });
+    },
+
+    acceptCall: () => {
+        const { activeCall } = get();
+        const authUser = useAuthStore.getState().authUser;
+        const socket = useAuthStore.getState().socket;
+        if (!activeCall || !socket || !authUser) return;
+
+        if (activeCall.isGroup) {
+            socket.emit("joinGroupCall", {
+                groupId: activeCall.receiverId,
+                userId: authUser._id,
+                fullName: authUser.fullName,
+                profilePic: authUser.profilePic,
+            });
+            const selfParticipant = {
+                userId: authUser._id,
+                fullName: authUser.fullName,
+                profilePic: authUser.profilePic || "",
+            };
+            const participants = [
+                ...(activeCall.participants || []).filter(
+                    (p) => p.userId?.toString() !== authUser._id?.toString()
+                ),
+                selfParticipant,
+            ];
+            set({
+                activeCall: {
+                    ...activeCall,
+                    status: "connected",
+                    participants,
+                },
+            });
+            return;
+        }
+
+        set({
+            activeCall: {
+                ...activeCall,
+                status: "connected",
+            },
+        });
+
+        socket.emit("answerCall", { callerId: activeCall.callerId, isGroup: false });
+    },
+
+    rejectCall: () => {
+        const { activeCall } = get();
+        const socket = useAuthStore.getState().socket;
+        if (!activeCall || !socket) return;
+
+        set({
+            activeCall: {
+                ...activeCall,
+                status: "disconnected",
+                endedReason: "Đã từ chối cuộc gọi"
+            }
+        });
+
+        if (!activeCall.isGroup) {
+            socket.emit("rejectCall", { callerId: activeCall.callerId, isGroup: false });
+            get().logMissedCall();
+        }
+    },
+
+    endCall: () => {
+        const { activeCall } = get();
+        const authUser = useAuthStore.getState().authUser;
+        const socket = useAuthStore.getState().socket;
+        if (!activeCall || !socket) return;
+
+        if (activeCall.isGroup) {
+            socket.emit("leaveGroupCall", {
+                groupId: activeCall.receiverId,
+                userId: authUser?._id,
+            });
+        } else {
+            socket.emit("endCall", {
+                targetId: activeCall.isIncoming ? activeCall.callerId : activeCall.receiverId,
+                isGroup: false,
+            });
+        }
+
+        set({
+            activeCall: {
+                ...activeCall,
+                status: "disconnected",
+                endedReason: activeCall.isGroup ? "Bạn đã rời cuộc gọi" : "Cuộc gọi đã kết thúc",
+            },
+        });
+    },
+
+    closeCallOverlay: () => {
+        set({ activeCall: null });
+    },
+
+    logMissedCall: async () => {
+        const { activeCall } = get();
+        if (!activeCall) return;
+
+        const receiverId = activeCall.isGroup
+            ? activeCall.receiverId
+            : activeCall.isIncoming
+              ? activeCall.callerId
+              : activeCall.receiverId;
+        try {
+            const res = await axiosInstance.post(`/messages/send/${receiverId}`, {
+                text: `[CALL_${activeCall.type.toUpperCase()}_MISSED]`,
+            });
+            const selectedUser = get().selectedUser;
+            const users = get().users;
+            const previewText = activeCall.isGroup && res.data.text
+                ? formatGroupLastMessagePreview(
+                      useAuthStore.getState().authUser?.fullName || "Bạn",
+                      res.data.text
+                  )
+                : null;
+            const lastMsg = previewText ? { ...res.data, text: previewText } : res.data;
+            const updatedUsers = users.map((u) =>
+                u._id === receiverId ? { ...u, lastMessage: lastMsg } : u
+            );
+            if (selectedUser && selectedUser._id === receiverId) {
+                set({
+                    messages: [...get().messages, res.data],
+                    users: updatedUsers,
+                });
+            } else {
+                set({ users: updatedUsers });
+            }
+        } catch (error) {
+            console.error("Failed to log missed call:", error);
+        }
+    },
+
+    logCompletedCall: async (duration) => {
+        const { activeCall } = get();
+        if (!activeCall) return;
+
+        // Only the caller / host logs the completed call to avoid duplicates!
+        if (activeCall.isIncoming) return;
+        const authUser = useAuthStore.getState().authUser;
+        if (activeCall.isGroup && activeCall.callerId?.toString() !== authUser?._id?.toString()) return;
+
+        const receiverId = activeCall.receiverId;
+        try {
+            const res = await axiosInstance.post(`/messages/send/${receiverId}`, {
+                text: `[CALL_${activeCall.type.toUpperCase()}_COMPLETED:${duration}]`,
+            });
+            const selectedUser = get().selectedUser;
+            const users = get().users;
+            const previewText = activeCall.isGroup && res.data.text
+                ? formatGroupLastMessagePreview(
+                      authUser?.fullName || "Bạn",
+                      res.data.text
+                  )
+                : null;
+            const lastMsg = previewText ? { ...res.data, text: previewText } : res.data;
+            const updatedUsers = users.map((u) =>
+                u._id === receiverId ? { ...u, lastMessage: lastMsg } : u
+            );
+            if (selectedUser && selectedUser._id === receiverId) {
+                set({
+                    messages: [...get().messages, res.data],
+                    users: updatedUsers,
+                });
+            } else {
+                set({ users: updatedUsers });
+            }
+        } catch (error) {
+            console.error("Failed to log completed call:", error);
+        }
+    },
 }));
