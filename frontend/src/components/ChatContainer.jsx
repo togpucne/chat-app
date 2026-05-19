@@ -702,8 +702,44 @@ const ChatContainer = () => {
                                             />
                                         )}
 
-                                        {/* If there is text, a file, a reply context, or if it is recalled, render the standard Zalo colored bubble! */}
-                                        {(message.text || message.file || message.isRecalled || message.replyTo) && (
+                                        {/* File card - rendered OUTSIDE bubble so file-only messages don't get blue bg */}
+                                        {message.file && message.file.url && !message.isRecalled && (() => {
+                                            const ext = message.file.name?.split('.').pop()?.toLowerCase() || '';
+                                            const fileTypeConfig = {
+                                                pdf: { bg: 'bg-red-500', letter: 'PDF', text: 'text-white' },
+                                                doc: { bg: 'bg-blue-600', letter: 'W', text: 'text-white' },
+                                                docx: { bg: 'bg-blue-600', letter: 'W', text: 'text-white' },
+                                                xls: { bg: 'bg-green-600', letter: 'X', text: 'text-white' },
+                                                xlsx: { bg: 'bg-green-600', letter: 'X', text: 'text-white' },
+                                                ppt: { bg: 'bg-orange-500', letter: 'P', text: 'text-white' },
+                                                pptx: { bg: 'bg-orange-500', letter: 'P', text: 'text-white' },
+                                                zip: { bg: 'bg-yellow-500', letter: 'ZIP', text: 'text-white' },
+                                                rar: { bg: 'bg-yellow-600', letter: 'RAR', text: 'text-white' },
+                                                txt: { bg: 'bg-slate-500', letter: 'TXT', text: 'text-white' },
+                                            };
+                                            const cfg = fileTypeConfig[ext] || { bg: 'bg-slate-400', letter: ext?.toUpperCase().slice(0,3) || '?', text: 'text-white' };
+                                            return (
+                                                <a
+                                                    href={message.file.url}
+                                                    download={message.file.name}
+                                                    className="flex items-center gap-3 bg-white hover:bg-slate-50 text-slate-800 p-3 rounded-xl border border-slate-200 transition-colors select-none max-w-[260px] text-left shadow-sm"
+                                                    title="Bấm để tải tệp về"
+                                                >
+                                                    <div className={`${cfg.bg} ${cfg.text} size-11 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm font-bold text-[11px] tracking-wide`}>
+                                                        {cfg.letter}
+                                                    </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-sm font-semibold truncate leading-tight text-slate-800">{message.file.name}</p>
+                                                        <p className="text-[11px] text-slate-400 leading-none mt-1">
+                                                            {message.file.size ? `${(message.file.size / 1024).toFixed(1)} KB` : "Tệp đính kèm"}
+                                                        </p>
+                                                    </div>
+                                                </a>
+                                            );
+                                        })()}
+
+                                        {/* Text bubble, reply context, or recalled - standard Zalo colored bubble */}
+                                        {(message.text || message.isRecalled || message.replyTo) && (
                                             <div className={`flex flex-col relative py-2.5 px-4 rounded-2xl shadow-sm text-[14px] leading-relaxed max-w-full overflow-visible transition-all duration-200 ${
                                                 message.senderId === authUser._id 
                                                     ? "bg-[#e1f0ff] border border-[#cbe3ff] text-[#081c36] rounded-tr-none" 
@@ -763,26 +799,6 @@ const ChatContainer = () => {
                                                     <p className="text-sm py-1">Tin nhắn đã bị thu hồi</p>
                                                 ) : (
                                                     <>
-                                                        {/* Document download card */}
-                                                        {message.file && message.file.url && (
-                                                            <a 
-                                                                href={message.file.url} 
-                                                                download={message.file.name}
-                                                                className="flex items-center gap-3 bg-[#f0f2f5] hover:bg-[#e4e6eb] text-slate-800 p-2.5 rounded-lg border border-[#e4e6eb] transition-colors mt-1 mb-2 select-none max-w-[240px] text-left shadow-sm"
-                                                                title="Bấm để tải tệp về"
-                                                            >
-                                                                <div className="bg-primary/10 text-primary p-2 rounded flex-shrink-0">
-                                                                    <Paperclip className="size-5" />
-                                                                </div>
-                                                                <div className="min-w-0 flex-1">
-                                                                    <p className="text-xs font-bold truncate leading-tight text-slate-800">{message.file.name}</p>
-                                                                    <p className="text-[10px] text-slate-500 leading-none mt-1">
-                                                                        {message.file.size ? `${(message.file.size / 1024).toFixed(1)} KB` : "Tệp đính kèm"}
-                                                                    </p>
-                                                                </div>
-                                                            </a>
-                                                        )}
-
                                                         {message.text && (
                                                             <div className="flex flex-col gap-1.5">
                                                                 <p className="break-words text-sm whitespace-pre-wrap">
