@@ -160,7 +160,7 @@ export default function GroupCallGrid({
             : remoteStreams[id];
         const showVideo = isSelf
             ? (isSharer ? !!screenStream : !isVideoOff && !!localStream)
-            : (remoteVideoOn[id] && !!stream);
+            : (isSharer ? !!stream : p?.videoOn && !!stream);
         return {
             id,
             name: isSelf ? authUser?.fullName || "Bạn" : p.fullName || "Thành viên",

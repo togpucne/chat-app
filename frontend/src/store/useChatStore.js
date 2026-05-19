@@ -1029,11 +1029,12 @@ export const useChatStore = create((set, get) => ({
                 set({ unreadCounts: counts });
                 persistUnreadCounts(counts);
             }
-            const socket = useAuthStore.getState().socket;
-            const authUser = useAuthStore.getState().authUser;
             if (socket && authUser) {
                 socket.emit("userOpenedChat", { openerId: authUser._id, recipientId: selectedUser._id });
             }
+            // Re‑subscribe to incoming messages so chat updates instantly after a call ends
+            get().subscribeToMessages();
+
         }
     },
 
