@@ -698,7 +698,9 @@ const ChatContainer = () => {
                                 message.text?.includes("vào nhóm") ||
                                 message.text?.includes("khỏi nhóm") ||
                                 message.text?.includes("rời khỏi nhóm") ||
-                                message.text?.includes("nhường quyền trưởng nhóm")
+                                message.text?.includes("nhường quyền trưởng nhóm") ||
+                                message.text?.includes("đổi tên nhóm thành") ||
+                                message.text?.includes("cập nhật ảnh đại diện của nhóm")
                             );
 
                             if (isSystemMessage) {
