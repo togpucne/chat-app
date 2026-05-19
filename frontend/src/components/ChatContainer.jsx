@@ -154,6 +154,7 @@ const ChatContainer = () => {
     const [selectedForwardUsers, setSelectedForwardUsers] = useState([]);
 
     const [isRecipientTyping, setIsRecipientTyping] = useState(false);
+    const [typingSenderName, setTypingSenderName] = useState("");
     const recipientTypingTimeoutRef = useRef(null);
 
     const [showAllSharedImages, setShowAllSharedImages] = useState(false);
@@ -236,16 +237,31 @@ const ChatContainer = () => {
                     }
                 };
 
-                const handleTypingChange = ({ senderId, isTyping }) => {
-                    if (senderId === selectedUser._id) {
-                        setIsRecipientTyping(isTyping);
-                        if (isTyping) {
-                            if (recipientTypingTimeoutRef.current) {
-                                clearTimeout(recipientTypingTimeoutRef.current);
+                const handleTypingChange = ({ senderId, isTyping, isGroup, groupId, senderName }) => {
+                    if (isGroup) {
+                        if (selectedUser.isGroup && groupId === selectedUser._id) {
+                            setTypingSenderName(senderName || "Thành viên");
+                            setIsRecipientTyping(isTyping);
+                            if (isTyping) {
+                                if (recipientTypingTimeoutRef.current) {
+                                    clearTimeout(recipientTypingTimeoutRef.current);
+                                }
+                                recipientTypingTimeoutRef.current = setTimeout(() => {
+                                    setIsRecipientTyping(false);
+                                }, 6000);
                             }
-                            recipientTypingTimeoutRef.current = setTimeout(() => {
-                                setIsRecipientTyping(false);
-                            }, 6000);
+                        }
+                    } else {
+                        if (!selectedUser.isGroup && senderId === selectedUser._id) {
+                            setIsRecipientTyping(isTyping);
+                            if (isTyping) {
+                                if (recipientTypingTimeoutRef.current) {
+                                    clearTimeout(recipientTypingTimeoutRef.current);
+                                }
+                                recipientTypingTimeoutRef.current = setTimeout(() => {
+                                    setIsRecipientTyping(false);
+                                }, 6000);
+                            }
                         }
                     }
                 };
@@ -1028,7 +1044,9 @@ const ChatContainer = () => {
 
             {isRecipientTyping && (
                 <div className="px-4 py-2 text-xs text-base-content/50 flex items-center gap-1.5 animate-fade-in select-none bg-base-100">
-                    <span className="font-semibold text-primary">{selectedUser.fullName}</span> đang soạn tin...
+                    <span className="font-semibold text-primary">
+                        {selectedUser.isGroup ? typingSenderName : selectedUser.fullName}
+                    </span> đang soạn tin...
                     <span className="flex gap-0.5 items-center justify-center ml-0.5">
                         <span className="size-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "0ms", animationDuration: "1000ms" }}></span>
                         <span className="size-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "150ms", animationDuration: "1000ms" }}></span>

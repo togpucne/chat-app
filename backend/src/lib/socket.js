@@ -2,6 +2,8 @@ import { Server } from "socket.io";
 import http from "http";
 import express from "express";
 import User from "../models/user.model.js";
+import Group from "../models/group.model.js";
+
 
 const app = express();
 const server = http.createServer(app);
@@ -45,10 +47,35 @@ io.on("connection", (socket) => {
         }
     });
 
-    socket.on("typing", ({ recipientId, isTyping }) => {
-        const recipientSocketId = userSocketMap[recipientId];
-        if (recipientSocketId) {
-            io.to(recipientSocketId).emit("typingStateChanged", { senderId: userId, isTyping });
+    socket.on("typing", async ({ recipientId, isTyping, isGroup, senderName }) => {
+        if (isGroup) {
+            const group = await Group.findById(recipientId);
+            if (group) {
+                group.members.forEach((memberId) => {
+                    if (memberId && memberId.toString() !== userId?.toString()) {
+                        const memberSocketId = userSocketMap[memberId.toString()];
+                        if (memberSocketId) {
+                            io.to(memberSocketId).emit("typingStateChanged", { 
+                                senderId: userId, 
+                                isTyping, 
+                                isGroup: true,
+                                groupId: recipientId,
+                                senderName
+                            });
+                        }
+                    }
+                });
+            }
+        } else {
+            const recipientSocketId = userSocketMap[recipientId];
+            if (recipientSocketId) {
+                io.to(recipientSocketId).emit("typingStateChanged", { 
+                    senderId: userId, 
+                    isTyping,
+                    isGroup: false,
+                    senderName
+                });
+            }
         }
     });
 

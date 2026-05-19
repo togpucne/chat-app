@@ -616,6 +616,8 @@ export const addGroupMembers = async (req, res) => {
       });
       await systemMessage.save();
 
+      const populatedSystemMessage = await Message.findById(systemMessage._id).populate("senderId", "fullName profilePic");
+
       populatedGroup = await Group.findById(group._id).populate("members", "-password");
 
       // Notify members via socket
@@ -624,7 +626,7 @@ export const addGroupMembers = async (req, res) => {
         const receiverSocketId = getReceiverSocketId(memberId.toString());
         if (receiverSocketId) {
           io.to(receiverSocketId).emit("groupUpdated", populatedGroup);
-          io.to(receiverSocketId).emit("newMessage", systemMessage);
+          io.to(receiverSocketId).emit("newMessage", populatedSystemMessage);
         }
       });
     }
@@ -695,6 +697,8 @@ export const removeGroupMember = async (req, res) => {
     });
     await systemMessage.save();
 
+    const populatedSystemMessage = await Message.findById(systemMessage._id).populate("senderId", "fullName profilePic");
+
     // Populate the already updated document to ensure it is 100% in sync
     const populatedGroup = await updateResult.populate("members", "-password");
 
@@ -703,10 +707,11 @@ export const removeGroupMember = async (req, res) => {
     const allNotifiedMembers = [...updateResult.members, memberId];
     allNotifiedMembers.forEach((mId) => {
       if (!mId) return;
-      const receiverSocketId = getReceiverSocketId(mId.toString());
+      const memberIdStr = typeof mId === "object" && mId._id ? mId._id.toString() : mId.toString();
+      const receiverSocketId = getReceiverSocketId(memberIdStr);
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("groupUpdated", populatedGroup);
-        io.to(receiverSocketId).emit("newMessage", systemMessage);
+        io.to(receiverSocketId).emit("newMessage", populatedSystemMessage);
       }
     });
 
@@ -772,6 +777,8 @@ export const leaveGroup = async (req, res) => {
       });
       await systemMessage.save();
 
+      const populatedSystemMessage = await Message.findById(systemMessage._id).populate("senderId", "fullName profilePic");
+
       const populatedGroup = await Group.findById(group._id).populate("members", "-password");
 
       // Notify ALL remaining members, and the leaver
@@ -781,7 +788,7 @@ export const leaveGroup = async (req, res) => {
         const receiverSocketId = getReceiverSocketId(mId.toString());
         if (receiverSocketId) {
           io.to(receiverSocketId).emit("groupUpdated", populatedGroup);
-          io.to(receiverSocketId).emit("newMessage", systemMessage);
+          io.to(receiverSocketId).emit("newMessage", populatedSystemMessage);
         }
       });
     } else {

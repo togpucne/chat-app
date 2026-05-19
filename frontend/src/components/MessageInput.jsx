@@ -50,11 +50,17 @@ const MessageInput = () => {
 
     const handleTyping = () => {
         const socket = useAuthStore.getState().socket;
+        const authUser = useAuthStore.getState().authUser;
         if (!socket || !selectedUser) return;
 
         if (!isTypingRef.current) {
             isTypingRef.current = true;
-            socket.emit("typing", { recipientId: selectedUser._id, isTyping: true });
+            socket.emit("typing", { 
+                recipientId: selectedUser._id, 
+                isTyping: true,
+                isGroup: !!selectedUser.isGroup,
+                senderName: authUser?.fullName
+            });
         }
 
         if (typingTimeoutRef.current) {
@@ -63,7 +69,12 @@ const MessageInput = () => {
 
         typingTimeoutRef.current = setTimeout(() => {
             isTypingRef.current = false;
-            socket.emit("typing", { recipientId: selectedUser._id, isTyping: false });
+            socket.emit("typing", { 
+                recipientId: selectedUser._id, 
+                isTyping: false,
+                isGroup: !!selectedUser.isGroup,
+                senderName: authUser?.fullName
+            });
         }, 5000);
     };
 
