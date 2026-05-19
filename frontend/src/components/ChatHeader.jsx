@@ -23,11 +23,10 @@ const formatLastActive = (updatedAt, isOnline) => {
 };
 
 const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOpen, onOpenAddMember }) => {
-    const { selectedUser, setSelectedUser, leaveGroup, messages, updateGroup, initiateCall, groupCalls, joinGroupCall, activeCall } = useChatStore();
+    const { selectedUser, setSelectedUser, leaveGroup, messages, updateGroup, initiateCall, groupCalls, joinGroupCall, activeCall, isCreateCallModalOpen, setCreateCallModalOpen } = useChatStore();
     const { onlineUsers, authUser, unfriend } = useAuthStore();
     
     const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
-    const [isCreateCallModalOpen, setIsCreateCallModalOpen] = useState(false);
     const [callType, setCallType] = useState("video");
     const [selectedMembers, setSelectedMembers] = useState([]);
     const [memberSearchQuery, setMemberSearchQuery] = useState("");
@@ -137,7 +136,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                                 setCallType("audio");
                                 setSelectedMembers([]);
                                 setMemberSearchQuery("");
-                                setIsCreateCallModalOpen(true);
+                                setCreateCallModalOpen(true);
                             } else {
                                 initiateCall("audio", false);
                             }
@@ -155,7 +154,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                                 setCallType("video");
                                 setSelectedMembers([]);
                                 setMemberSearchQuery("");
-                                setIsCreateCallModalOpen(true);
+                                setCreateCallModalOpen(true);
                             } else {
                                 initiateCall("video", false);
                             }
@@ -595,7 +594,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                         <div className="p-4 flex items-center justify-between border-b border-slate-100">
                             <h3 className="font-bold text-[17px] text-slate-800">Tạo cuộc gọi</h3>
                             <button 
-                                onClick={() => setIsCreateCallModalOpen(false)}
+                                onClick={() => setCreateCallModalOpen(false)}
                                 className="btn btn-ghost btn-circle btn-sm text-slate-500 hover:text-slate-800 hover:bg-slate-100"
                             >
                                 <X className="size-5" />
@@ -699,7 +698,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                         {/* Footer Controls */}
                         <div className="p-4 bg-slate-50 flex items-center justify-end gap-3 border-t border-slate-100">
                             <button 
-                                onClick={() => setIsCreateCallModalOpen(false)}
+                                onClick={() => setCreateCallModalOpen(false)}
                                 className="btn border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-300 rounded-lg px-6 font-semibold text-[14px]"
                             >
                                 Hủy
@@ -707,7 +706,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                             <button 
                                 disabled={selectedMembers.length === 0}
                                 onClick={() => {
-                                    setIsCreateCallModalOpen(false);
+                                    setCreateCallModalOpen(false);
                                     initiateCall(callType, true, selectedMembers);
                                 }}
                                 className={`btn border-none rounded-lg px-6 font-semibold text-[14px] ${selectedMembers.length > 0 ? 'bg-[#0068ff] hover:bg-[#005AE6] text-white' : 'bg-blue-200 text-white cursor-not-allowed shadow-none'}`}

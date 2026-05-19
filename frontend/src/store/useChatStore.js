@@ -33,6 +33,9 @@ export const useChatStore = create((set, get) => ({
     activeCall: null,
     /** groupId -> ongoing call snapshot from server */
     groupCalls: {},
+    isCreateCallModalOpen: false,
+
+    setCreateCallModalOpen: (open) => set({ isCreateCallModalOpen: open }),
 
     setReplyingTo: (message) => set({ replyingTo: message }),
 
@@ -1031,8 +1034,6 @@ export const useChatStore = create((set, get) => ({
             if (socket && authUser) {
                 socket.emit("userOpenedChat", { openerId: authUser._id, recipientId: selectedUser._id });
             }
-            get().getMessages(selectedUser._id);
-            get().subscribeToMessages();
         }
     },
 

@@ -26,13 +26,13 @@ function ParticipantTile({
     isLarge,
     onClick,
 }) {
-    const videoRef = useRef(null);
+    const [isActuallyPlaying, setIsActuallyPlaying] = useState(false);
 
     useEffect(() => {
-        if (videoRef.current) {
-            videoRef.current.srcObject = showVideo && stream ? stream : null;
+        if (!showVideo || !stream) {
+            setIsActuallyPlaying(false);
         }
-    }, [stream, showVideo, isScreenShare, stream?.getVideoTracks()[0]?.id]);
+    }, [showVideo, stream]);
 
     return (
         <div
@@ -51,18 +51,27 @@ function ParticipantTile({
                 <div className="absolute inset-0 rounded-xl pointer-events-none speaking-ring z-[5]" />
             )}
 
-            {showVideo && stream ? (
+            {showVideo && stream && (
                 <video
-                    ref={videoRef}
+                    ref={(el) => {
+                        if (el && el.srcObject !== stream) {
+                            el.srcObject = stream;
+                        }
+                    }}
                     autoPlay
                     playsInline
                     muted={isSelf}
-                    className={`absolute inset-0 w-full h-full ${
+                    onPlaying={() => setIsActuallyPlaying(true)}
+                    className={`absolute inset-0 w-full h-full transition-opacity duration-300 ${
                         isScreenShare ? "object-contain bg-black" : "object-cover"
-                    } ${isSelf && !isScreenShare ? "scale-x-[-1]" : ""}`}
+                    } ${isSelf && !isScreenShare ? "scale-x-[-1]" : ""} ${
+                        isActuallyPlaying ? "opacity-100" : "opacity-0"
+                    }`}
                 />
-            ) : (
-                <div className="flex flex-col items-center gap-2 p-4">
+            )}
+
+            {(!showVideo || !stream || !isActuallyPlaying) && (
+                <div className="flex flex-col items-center gap-2 p-4 z-10">
                     <img
                         src={avatar || "/avatar.png"}
                         alt={name}
@@ -151,9 +160,7 @@ export default function GroupCallGrid({
             : remoteStreams[id];
         const showVideo = isSelf
             ? (isSharer ? !!screenStream : !isVideoOff && !!localStream)
-            : (isSharer 
-                ? (remoteVideoOn[id] && !!stream) 
-                : (p.videoOn && remoteVideoOn[id] && !!stream));
+            : (remoteVideoOn[id] && !!stream);
         return {
             id,
             name: isSelf ? authUser?.fullName || "Bạn" : p.fullName || "Thành viên",

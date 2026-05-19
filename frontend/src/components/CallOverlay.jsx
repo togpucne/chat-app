@@ -18,6 +18,7 @@ export default function CallOverlay() {
     const [remoteStream, setRemoteStream] = useState(null);
     const [remoteHasVideo, setRemoteHasVideo] = useState(false);
     const [remoteCameraEnabled, setRemoteCameraEnabled] = useState(true);
+    const [isCameraChecked, setIsCameraChecked] = useState(false);
     const [screenStream, setScreenStream] = useState(null);
     const [isScreenSharing, setIsScreenSharing] = useState(false);
     const [groupScreenShareUsers, setGroupScreenShareUsers] = useState(() => {
@@ -105,7 +106,7 @@ export default function CallOverlay() {
         saveCameraTrack,
         getSavedCameraTrack,
     } = useGroupCallMesh({
-        enabled: isGroupConnected,
+        enabled: isGroupConnected && isCameraChecked,
         localStream,
         myId,
         participants: gridParticipants,
@@ -317,9 +318,7 @@ export default function CallOverlay() {
             setLocalStream(stream);
             const vt = stream.getVideoTracks()[0];
             if (vt && activeCall?.isGroup) saveCameraTrack?.(vt);
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-            }
+            setIsCameraChecked(true);
             return stream;
         } catch (err) {
             console.warn("Media devices access denied or unavailable:", err);
@@ -327,9 +326,11 @@ export default function CallOverlay() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 setLocalStream(stream);
+                setIsCameraChecked(true);
                 return stream;
             } catch (e) {
                 console.error("Audio access also denied:", e);
+                setIsCameraChecked(true);
                 return null;
             }
         }
@@ -357,6 +358,7 @@ export default function CallOverlay() {
         }
         setRemoteStream(null);
         setRemoteCameraEnabled(true);
+        setIsCameraChecked(false);
         cleanupMesh?.();
     };
 
@@ -381,7 +383,6 @@ export default function CallOverlay() {
                 const stream = await startCamera();
                 if (!isCurrent) return;
                 if (activeCall?.isGroup) return;
-                if (!isCurrent || !stream) return;
                 
                 try {
                     const pc = new RTCPeerConnection({
@@ -394,9 +395,11 @@ export default function CallOverlay() {
                     peerConnectionRef.current = pc;
 
                     // Add local tracks to peer connection
-                    stream.getTracks().forEach(track => {
-                        pc.addTrack(track, stream);
-                    });
+                    if (stream) {
+                        stream.getTracks().forEach(track => {
+                            pc.addTrack(track, stream);
+                        });
+                    }
 
                     // Handle ICE candidates
                     pc.onicecandidate = (event) => {
@@ -596,10 +599,13 @@ export default function CallOverlay() {
                     <button 
                         onClick={() => {
                             if (activeCall.isGroup) {
-                                const { selectedUser, setSelectedUser, users } = useChatStore.getState();
+                                const { setSelectedUser, users, setCreateCallModalOpen } = useChatStore.getState();
                                 const group = users.find((u) => u._id === activeCall.receiverId);
-                                if (group && selectedUser?._id !== group._id) setSelectedUser(group);
-                                initiateCall(activeCall.type, true, activeCall.invitedUsers || []);
+                                if (group) {
+                                    setSelectedUser(group);
+                                    setCreateCallModalOpen(true);
+                                }
+                                endCall();
                             } else {
                                 initiateCall(activeCall.type, false);
                             }
@@ -743,9 +749,14 @@ export default function CallOverlay() {
                 <>
                 {activeCall.type === "video" && remoteStream && (
                     <video 
-                        ref={remoteVideoRef}
+                        ref={(el) => {
+                            if (el && el.srcObject !== remoteStream) {
+                                el.srcObject = remoteStream;
+                            }
+                        }}
                         autoPlay
                         playsInline
+                        onPlaying={() => setRemoteHasVideo(true)}
                         className={`absolute inset-0 w-full h-full object-cover z-0 transition-opacity duration-200 ${remoteHasVideo ? "opacity-100" : "opacity-0"}`}
                     />
                 )}
@@ -786,7 +797,11 @@ export default function CallOverlay() {
                     <div className="absolute bottom-28 right-6 w-36 sm:w-48 aspect-[3/4] bg-slate-950 border-2 border-slate-700 rounded-xl overflow-hidden shadow-2xl z-20 animate-fade-in group">
                         {!isVideoOff && localStream ? (
                             <video 
-                                ref={videoRef}
+                                ref={(el) => {
+                                    if (el && el.srcObject !== localStream) {
+                                        el.srcObject = localStream;
+                                    }
+                                }}
                                 autoPlay
                                 playsInline
                                 muted

@@ -187,7 +187,7 @@ export function useGroupCallMesh({
     );
 
     useEffect(() => {
-        if (!enabled || !localStream || !myId || !participants?.length) return;
+        if (!enabled || !myId || !participants?.length) return;
 
         const remoteIds = participants
             .map((p) => p.userId?.toString())
@@ -201,7 +201,7 @@ export function useGroupCallMesh({
         });
 
         return () => {};
-    }, [enabled, localStream, myId, participants, connectToPeer, cleanupPeer]);
+    }, [enabled, myId, participants, connectToPeer, cleanupPeer]);
 
     useEffect(() => {
         if (!enabled) {
@@ -223,7 +223,7 @@ export function useGroupCallMesh({
     }, [enabled, socket, groupId, handleSignal]);
 
     useEffect(() => {
-        if (!enabled || !localStream) return;
+        if (!enabled) return;
         const interval = setInterval(() => {
             setRemoteStreams((prev) => {
                 Object.entries(prev).forEach(([id, stream]) => updateRemoteVideo(id, stream));
@@ -232,22 +232,37 @@ export function useGroupCallMesh({
             });
         }, 800);
         return () => clearInterval(interval);
-    }, [enabled, localStream, updateRemoteVideo]);
+    }, [enabled, updateRemoteVideo]);
 
     useEffect(() => {
         if (!enabled || !localStream) return;
-        peersRef.current.forEach((pc) => {
+        peersRef.current.forEach(async (pc, remoteId) => {
             const senders = pc.getSenders();
+            let needsNegotiation = false;
             localStream.getTracks().forEach((track) => {
                 const sender = senders.find((s) => s.track?.kind === track.kind);
                 if (sender) {
                     sender.replaceTrack(track);
                 } else {
                     pc.addTrack(track, localStream);
+                    needsNegotiation = true;
                 }
             });
+            if (needsNegotiation && socket) {
+                try {
+                    const offer = await pc.createOffer();
+                    await pc.setLocalDescription(offer);
+                    socket.emit("webrtcSignal", {
+                        targetId: remoteId,
+                        groupId,
+                        signal: { type: "offer", sdp: pc.localDescription },
+                    });
+                } catch (err) {
+                    console.error("Group mesh track negotiation failed for peer", remoteId, err);
+                }
+            }
         });
-    }, [enabled, localStream]);
+    }, [enabled, localStream, socket, groupId]);
 
     return {
         remoteStreams,
