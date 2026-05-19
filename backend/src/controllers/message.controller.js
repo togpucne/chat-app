@@ -319,7 +319,9 @@ export const sendMessage = async (req, res) => {
         if (memberId.toString() !== senderId.toString()) {
           const memberSocketId = getReceiverSocketId(memberId.toString());
           if (memberSocketId) {
-            io.to(memberSocketId).emit("newMessage", populatedMessage);
+            const messageObject = populatedMessage.toObject();
+            messageObject.isGroup = true;
+            io.to(memberSocketId).emit("newMessage", messageObject);
           }
         }
       });
@@ -626,7 +628,9 @@ export const addGroupMembers = async (req, res) => {
         const receiverSocketId = getReceiverSocketId(memberId.toString());
         if (receiverSocketId) {
           io.to(receiverSocketId).emit("groupUpdated", populatedGroup);
-          io.to(receiverSocketId).emit("newMessage", populatedSystemMessage);
+          const systemMsgObj = populatedSystemMessage.toObject();
+          systemMsgObj.isGroup = true;
+          io.to(receiverSocketId).emit("newMessage", systemMsgObj);
         }
       });
     }
@@ -711,7 +715,9 @@ export const removeGroupMember = async (req, res) => {
       const receiverSocketId = getReceiverSocketId(memberIdStr);
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("groupUpdated", populatedGroup);
-        io.to(receiverSocketId).emit("newMessage", populatedSystemMessage);
+        const systemMsgObj = populatedSystemMessage.toObject();
+        systemMsgObj.isGroup = true;
+        io.to(receiverSocketId).emit("newMessage", systemMsgObj);
       }
     });
 
@@ -788,7 +794,9 @@ export const leaveGroup = async (req, res) => {
         const receiverSocketId = getReceiverSocketId(mId.toString());
         if (receiverSocketId) {
           io.to(receiverSocketId).emit("groupUpdated", populatedGroup);
-          io.to(receiverSocketId).emit("newMessage", populatedSystemMessage);
+          const systemMsgObj = populatedSystemMessage.toObject();
+          systemMsgObj.isGroup = true;
+          io.to(receiverSocketId).emit("newMessage", systemMsgObj);
         }
       });
     } else {
@@ -802,5 +810,71 @@ export const leaveGroup = async (req, res) => {
     res.status(500).json({ message: "Lỗi hệ thống" });
   }
 };
+
+export const updateGroup = async (req, res) => {
+  try {
+    const { id: groupId } = req.params;
+    const { name, groupPic } = req.body;
+    const myId = req.user._id;
+
+    const group = await Group.findById(groupId);
+    if (!group) {
+      return res.status(404).json({ message: "Không tìm thấy nhóm" });
+    }
+
+    // Check if logged in user is a member of the group
+    const isMember = group.members.some(m => m.toString() === myId.toString());
+    if (!isMember) {
+      return res.status(403).json({ message: "Bạn không có quyền chỉnh sửa nhóm này" });
+    }
+
+    let imageUrl = group.groupPic;
+    if (groupPic && groupPic !== group.groupPic) {
+      const uploadResponse = await cloudinary.uploader.upload(groupPic);
+      imageUrl = uploadResponse.secure_url;
+    }
+
+    const oldName = group.name;
+    group.name = name || group.name;
+    group.groupPic = imageUrl;
+
+    await group.save();
+
+    let systemMsgText = "";
+    if (name && name !== oldName) {
+      systemMsgText = `đã đổi tên nhóm thành "${name}"`;
+    } else {
+      systemMsgText = `đã cập nhật ảnh đại diện của nhóm`;
+    }
+
+    const systemMessage = new Message({
+      senderId: myId,
+      receiverId: group._id,
+      text: systemMsgText,
+    });
+    await systemMessage.save();
+
+    const populatedSystemMessage = await Message.findById(systemMessage._id).populate("senderId", "fullName profilePic");
+
+    const populatedGroup = await Group.findById(group._id).populate("members", "-password");
+
+    group.members.forEach((memberId) => {
+      if (!memberId) return;
+      const receiverSocketId = getReceiverSocketId(memberId.toString());
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("groupUpdated", populatedGroup);
+        const systemMsgObj = populatedSystemMessage.toObject();
+        systemMsgObj.isGroup = true;
+        io.to(receiverSocketId).emit("newMessage", systemMsgObj);
+      }
+    });
+
+    res.status(200).json(populatedGroup);
+  } catch (error) {
+    console.log("Lỗi cập nhật nhóm: " + error.message);
+    res.status(500).json({ message: "Lỗi hệ thống" });
+  }
+};
+
 
 

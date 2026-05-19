@@ -3,10 +3,11 @@ import { useEffect, useRef, useState } from "react";
 import ChatHeader from "./ChatHeader";
 import MessageInput from "./MessageInput";
 import MessagesSkeleton from "./skeletons/MessagesSkeleton";
+import toast from "react-hot-toast";
 import { useAuthStore } from "../store/useAuthStore";
 import { GroupAvatar } from "./GroupAvatar";
 import { formatMessageTime } from "../lib/utils";
-import { MoreVertical, Pin, X, Paperclip, RotateCcw, RotateCw, Download, Search, Trash2, Ban, Bell, BellOff, Link2, FileText, Image, Globe, Check, Calendar, ChevronDown, Reply, Copy, Share2, RefreshCw, Target, CheckSquare, UserPlus, LogOut, UserMinus, Loader2, Users } from "lucide-react";
+import { MoreVertical, Pin, X, Paperclip, RotateCcw, RotateCw, Download, Search, Trash2, Ban, Bell, BellOff, Link2, FileText, Image, Globe, Check, Calendar, ChevronDown, Reply, Copy, Share2, RefreshCw, Target, CheckSquare, UserPlus, LogOut, UserMinus, Loader2, Users, Pencil, Camera } from "lucide-react";
 
 // Kiểm tra 2 tin nhắn có được gửi ở 2 ngày khác nhau hay không
 const isDifferentDay = (msg1, msg2) => {
@@ -126,12 +127,45 @@ const renderFormattedText = (text, searchQuery = "") => {
 };
 
 const ChatContainer = () => {
-    const { messages, getMessages, isMessagesLoading, selectedUser, subscribeToMessages, unsubscribeFromMessages, deleteMessage, setReplyingTo, pinMessage, reactMessage, clearMessages, users, forwardMessages, removeGroupMember, leaveGroup, addGroupMembers } = useChatStore();
+    const { messages, getMessages, isMessagesLoading, selectedUser, subscribeToMessages, unsubscribeFromMessages, deleteMessage, setReplyingTo, pinMessage, reactMessage, clearMessages, users, forwardMessages, removeGroupMember, leaveGroup, addGroupMembers, updateGroup } = useChatStore();
     const { authUser, onlineUsers, sendFriendRequest, acceptFriendRequest, rejectFriendRequest } = useAuthStore();
     const messageEndRef = useRef(null);
+    const fileInputRef = useRef(null);
 
     const [viewingImage, setViewingImage] = useState(null);
     const [rotation, setRotation] = useState(0);
+
+    const [isEditingGroupName, setIsEditingGroupName] = useState(false);
+    const [newGroupName, setNewGroupName] = useState("");
+    const [isUploadingGroupPic, setIsUploadingGroupPic] = useState(false);
+
+    const handleGroupNameUpdate = async () => {
+        if (!newGroupName.trim() || newGroupName === selectedUser.fullName) {
+            setIsEditingGroupName(false);
+            return;
+        }
+        await updateGroup(selectedUser._id, { name: newGroupName.trim() });
+        setIsEditingGroupName(false);
+    };
+
+    const handleGroupPicUpdate = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith("image/")) {
+            toast.error("Vui lòng chọn tệp hình ảnh");
+            return;
+        }
+
+        setIsUploadingGroupPic(true);
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = async () => {
+            const base64Image = reader.result;
+            await updateGroup(selectedUser._id, { groupPic: base64Image });
+            setIsUploadingGroupPic(false);
+        };
+    };
 
     // Search and Sidebar states
     const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -208,6 +242,8 @@ const ChatContainer = () => {
 
     useEffect(() => {
         if (selectedUser && authUser) {
+            setIsEditingGroupName(false);
+            setNewGroupName(selectedUser.fullName || "");
             // Load block, mute and pin states
             setIsIBlockedHim(localStorage.getItem(`block_${authUser._id}_${selectedUser._id}`) === "true");
             setIsHeBlockedMe(localStorage.getItem(`block_${selectedUser._id}_${authUser._id}`) === "true");
@@ -1152,10 +1188,72 @@ const ChatContainer = () => {
                             {!selectedUser.isGroup && onlineUsers.includes(selectedUser._id) && (
                                 <span className="absolute bottom-0.5 right-0.5 size-3 bg-green-500 rounded-full z-10 ring-2 ring-white"></span>
                             )}
+                            {selectedUser.isGroup && (
+                                <>
+                                    <input 
+                                        type="file" 
+                                        ref={fileInputRef} 
+                                        className="hidden" 
+                                        accept="image/*" 
+                                        onChange={handleGroupPicUpdate} 
+                                    />
+                                    <button 
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="absolute -bottom-1 -right-1 p-1 bg-primary text-white rounded-full shadow hover:scale-105 active:scale-95 transition-all flex items-center justify-center size-6 cursor-pointer"
+                                        title="Đổi ảnh đại diện nhóm"
+                                        disabled={isUploadingGroupPic}
+                                    >
+                                        {isUploadingGroupPic ? <Loader2 className="size-3 animate-spin" /> : <Camera className="size-3" />}
+                                    </button>
+                                </>
+                            )}
                         </div>
-                        <h4 className="font-bold text-base text-base-content flex items-center gap-1.5 justify-center">
-                            {selectedUser.fullName}
-                        </h4>
+                        {isEditingGroupName ? (
+                            <div className="flex items-center gap-1 w-full max-w-[200px] justify-center mt-1">
+                                <input 
+                                    type="text" 
+                                    value={newGroupName} 
+                                    onChange={(e) => setNewGroupName(e.target.value)}
+                                    className="input input-bordered input-xs w-full text-center font-bold text-sm h-7 rounded px-1.5 focus:outline-primary"
+                                    placeholder="Tên nhóm..."
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") handleGroupNameUpdate();
+                                        if (e.key === "Escape") setIsEditingGroupName(false);
+                                    }}
+                                />
+                                <button 
+                                    onClick={handleGroupNameUpdate}
+                                    className="btn btn-square btn-xs btn-primary h-7 w-7 min-h-0 flex items-center justify-center rounded"
+                                    title="Lưu"
+                                >
+                                    <Check className="size-3.5" />
+                                </button>
+                                <button 
+                                    onClick={() => setIsEditingGroupName(false)}
+                                    className="btn btn-square btn-xs btn-ghost h-7 w-7 min-h-0 flex items-center justify-center rounded hover:bg-base-200"
+                                    title="Hủy"
+                                >
+                                    <X className="size-3.5" />
+                                </button>
+                            </div>
+                        ) : (
+                            <h4 className="font-bold text-base text-base-content flex items-center gap-1 justify-center">
+                                <span className="truncate max-w-[180px]">{selectedUser.fullName}</span>
+                                {selectedUser.isGroup && (
+                                    <button 
+                                        onClick={() => {
+                                            setNewGroupName(selectedUser.fullName || "");
+                                            setIsEditingGroupName(true);
+                                        }}
+                                        className="p-1 hover:bg-base-200 rounded-full transition-colors text-base-content/65 hover:text-base-content flex items-center justify-center size-6"
+                                        title="Đổi tên nhóm"
+                                    >
+                                        <Pencil className="size-3" />
+                                    </button>
+                                )}
+                            </h4>
+                        )}
                         <p className="text-xs text-base-content/50 mt-0.5">
                             {selectedUser.isGroup 
                                 ? `Nhóm • ${selectedUser.members?.length || 0} thành viên`

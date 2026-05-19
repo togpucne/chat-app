@@ -162,9 +162,14 @@ export const useChatStore = create((set, get) => ({
         if (!socket) return;
         socket.on("newMessage", (newMessage) => {
             const senderId = typeof newMessage.senderId === "object" ? newMessage.senderId?._id : newMessage.senderId;
-            const isRelevant = selectedUser.isGroup
-                ? newMessage.receiverId === selectedUser._id
-                : senderId === selectedUser._id;
+            const isGroupMsg = newMessage.isGroup || get().users.some(u => u._id === newMessage.receiverId && u.isGroup);
+            
+            const isRelevant = isGroupMsg
+                ? (selectedUser.isGroup && newMessage.receiverId === selectedUser._id)
+                : (!selectedUser.isGroup && (
+                    senderId === selectedUser._id ||
+                    (senderId === useAuthStore.getState().authUser?._id && newMessage.receiverId === selectedUser._id)
+                  ));
             
             if (!isRelevant) return;
 
@@ -255,9 +260,15 @@ export const useChatStore = create((set, get) => ({
                 }
             }
 
+            const isGroupMsg = newMessage.isGroup || (groupUser && groupUser.isGroup);
+
             // Real-time update lastMessage in sidebar list immediately on receive
             const updatedUsers = users.map((u) => {
-                if (u._id === senderId || u._id === newMessage.receiverId) {
+                const isMatch = isGroupMsg
+                    ? u._id === newMessage.receiverId
+                    : (u._id === senderId || u._id === newMessage.receiverId);
+
+                if (isMatch) {
                     return { ...u, lastMessage: updatedLastMessage };
                 }
                 return u;
@@ -266,7 +277,7 @@ export const useChatStore = create((set, get) => ({
             set({ users: updatedUsers });
 
             // Determine if the target chat is a group or direct user
-            const targetId = groupUser && groupUser.isGroup ? newMessage.receiverId : senderId;
+            const targetId = isGroupMsg ? newMessage.receiverId : senderId;
 
             // Increment unread count only if we are not actively in their conversation and the sender is NOT ourselves
             if (senderId !== useAuthStore.getState().authUser?._id) {
@@ -328,6 +339,24 @@ export const useChatStore = create((set, get) => ({
                 return;
             }
 
+            const hasGroup = users.some(u => u._id === updatedGroup._id);
+            if (!hasGroup) {
+                const formattedGroup = {
+                    _id: updatedGroup._id,
+                    fullName: updatedGroup.name,
+                    profilePic: updatedGroup.groupPic || "",
+                    isGroup: true,
+                    members: updatedGroup.members,
+                    creator: updatedGroup.creator,
+                    admins: updatedGroup.admins,
+                    lastMessage: { text: "Bạn đã được thêm vào nhóm" },
+                    unreadCount: 0,
+                    updatedAt: updatedGroup.updatedAt,
+                };
+                set({ users: [...users, formattedGroup] });
+                return;
+            }
+
             const updatedUsers = users.map(u => {
                 if (u._id === updatedGroup._id) {
                     return {
@@ -335,6 +364,7 @@ export const useChatStore = create((set, get) => ({
                         fullName: updatedGroup.name,
                         profilePic: updatedGroup.groupPic || "",
                         members: updatedGroup.members,
+                        creator: updatedGroup.creator,
                         admins: updatedGroup.admins,
                     };
                 }
@@ -491,6 +521,30 @@ export const useChatStore = create((set, get) => ({
             return res.data;
         } catch (error) {
             toast.error(error.response?.data?.message || "Lỗi rời nhóm");
+        }
+    },
+
+    updateGroup: async (groupId, updateData) => {
+        try {
+            const res = await axiosInstance.put(`/messages/groups/${groupId}`, updateData);
+            toast.success("Cập nhật thông tin nhóm thành công!");
+            
+            const updatedGroup = {
+                ...res.data,
+                isGroup: true,
+            };
+            
+            const { users, selectedUser } = get();
+            const updatedUsers = users.map((u) => u._id === groupId ? { ...u, ...updatedGroup } : u);
+            
+            set({
+                users: updatedUsers,
+                selectedUser: selectedUser?._id === groupId ? { ...selectedUser, ...updatedGroup } : selectedUser,
+            });
+            
+            return res.data;
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Lỗi cập nhật nhóm");
         }
     },
     clearMessages: () => set({ messages: [] }),
