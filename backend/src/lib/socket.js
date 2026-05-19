@@ -33,6 +33,7 @@ function serializeGroupCall(room) {
         receiverName: room.receiverName,
         receiverAvatar: room.receiverAvatar,
         participants: Object.values(room.participants),
+        screenSharers: room.screenSharers || {},
     };
 }
 
@@ -93,6 +94,12 @@ io.on("connection", (socket) => {
         const recipientSocketId = userSocketMap[recipientId];
         if (recipientSocketId) {
             io.to(recipientSocketId).emit("recipientOpenedChat", { openerId });
+        }
+    });
+
+    socket.on("userClosedChat", ({ userId }) => {
+        if (userId) {
+            delete activeChats[userId.toString()];
         }
     });
 
@@ -214,6 +221,7 @@ io.on("connection", (socket) => {
             fullName: callerName,
             profilePic: callerAvatar || "",
             joinedAt: Date.now(),
+            videoOn: type === "video",
         };
 
         const payload = serializeGroupCall(room);
@@ -250,7 +258,7 @@ io.on("connection", (socket) => {
             .catch((err) => console.error("startGroupCall:", err.message));
     });
 
-    socket.on("joinGroupCall", ({ groupId, userId, fullName, profilePic }) => {
+    socket.on("joinGroupCall", ({ groupId, userId, fullName, profilePic, videoOn }) => {
         const room = groupCallRooms[groupId];
         if (!room || !userId) return;
 
@@ -259,6 +267,7 @@ io.on("connection", (socket) => {
             fullName: fullName || "Thành viên",
             profilePic: profilePic || "",
             joinedAt: Date.now(),
+            videoOn: videoOn !== undefined ? Boolean(videoOn) : room.type === "video",
         };
 
         const payload = serializeGroupCall(room);
@@ -273,8 +282,27 @@ io.on("connection", (socket) => {
         });
     });
 
+    socket.on("groupVideoToggle", ({ groupId, userId, enabled }) => {
+        if (!groupId || !userId) return;
+        const room = groupCallRooms[groupId];
+        if (room && room.participants[userId.toString()]) {
+            room.participants[userId.toString()].videoOn = Boolean(enabled);
+            emitGroupCallToMembers(groupId, "groupCallUpdated", serializeGroupCall(room));
+        }
+    });
+
     socket.on("groupScreenShare", ({ groupId, userId, active, userName }) => {
         if (!groupId) return;
+        const room = groupCallRooms[groupId];
+        if (room) {
+            if (!room.screenSharers) room.screenSharers = {};
+            if (active) {
+                room.screenSharers[userId.toString()] = true;
+            } else {
+                delete room.screenSharers[userId.toString()];
+            }
+            broadcastRoom(groupId);
+        }
         emitGroupCallToMembers(groupId, "groupScreenShare", {
             groupId,
             userId,
@@ -288,6 +316,9 @@ io.on("connection", (socket) => {
         if (!room || !userId) return;
 
         delete room.participants[userId.toString()];
+        if (room.screenSharers) {
+            delete room.screenSharers[userId.toString()];
+        }
         const remaining = Object.keys(room.participants).length;
 
         if (remaining === 0) {
@@ -315,6 +346,9 @@ io.on("connection", (socket) => {
                 const room = groupCallRooms[groupId];
                 if (room?.participants[userId.toString()]) {
                     delete room.participants[userId.toString()];
+                    if (room.screenSharers) {
+                        delete room.screenSharers[userId.toString()];
+                    }
                     const remaining = Object.keys(room.participants).length;
                     if (remaining === 0) {
                         delete groupCallRooms[groupId];

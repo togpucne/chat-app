@@ -186,6 +186,9 @@ export const useChatStore = create((set, get) => ({
 
         const socket = useAuthStore.getState().socket;
         if (!socket) return;
+
+        get().unsubscribeFromMessages();
+
         socket.on("newMessage", (newMessage) => {
             const senderId = normId(
                 typeof newMessage.senderId === "object" ? newMessage.senderId?._id : newMessage.senderId
@@ -299,6 +302,18 @@ export const useChatStore = create((set, get) => ({
 
     initializeSocketListener: (socket) => {
         if (!socket) return;
+        
+        // Auto-subscribe to the active chat on reconnect
+        const { selectedUser } = get();
+        if (selectedUser) {
+            get().subscribeToMessages();
+            
+            const authUser = useAuthStore.getState().authUser;
+            if (authUser) {
+                socket.emit("userOpenedChat", { openerId: authUser._id, recipientId: selectedUser._id });
+            }
+        }
+
         // Clean any existing listener to prevent double triggers
         socket.off("globalNewMessage");
         socket.off("blockStateChanged");
@@ -495,7 +510,11 @@ export const useChatStore = create((set, get) => ({
                 return tb - ta;
             });
 
-            const viewingChat = selectedUser && normId(selectedUser._id) === chatKey;
+            const isCallOverlayActive = Boolean(
+                get().activeCall && 
+                (get().activeCall.status === "ringing" || get().activeCall.status === "connected" || get().activeCall.status === "disconnected")
+            );
+            const viewingChat = selectedUser && normId(selectedUser._id) === chatKey && !isCallOverlayActive;
             let nextCounts = get().unreadCounts;
 
             if (senderId !== myId && !viewingChat) {
@@ -616,24 +635,29 @@ export const useChatStore = create((set, get) => ({
     },
 
     setSelectedUser: (selectedUser) => {
+        const previousSelected = get().selectedUser;
         set({ selectedUser });
-        if (selectedUser) {
-            // Clear unread counts for this user!
-            const key = normId(selectedUser._id);
-            const counts = { ...get().unreadCounts };
-            if (counts[key]) {
-                delete counts[key];
-                set({ unreadCounts: counts });
-                persistUnreadCounts(counts);
-            }
+        
+        const socket = useAuthStore.getState().socket;
+        const authUser = useAuthStore.getState().authUser;
+        
+        if (socket && authUser) {
+            if (selectedUser) {
+                // Clear unread counts for this user!
+                const key = normId(selectedUser._id);
+                const counts = { ...get().unreadCounts };
+                if (counts[key]) {
+                    delete counts[key];
+                    set({ unreadCounts: counts });
+                    persistUnreadCounts(counts);
+                }
 
-            const socket = useAuthStore.getState().socket;
-            const authUser = useAuthStore.getState().authUser;
-            if (socket && authUser) {
                 socket.emit("userOpenedChat", { openerId: authUser._id, recipientId: selectedUser._id });
                 if (selectedUser.isGroup) {
                     socket.emit("getGroupCallState", { groupId: selectedUser._id });
                 }
+            } else if (previousSelected) {
+                socket.emit("userClosedChat", { userId: authUser._id });
             }
         }
     },
@@ -871,6 +895,7 @@ export const useChatStore = create((set, get) => ({
                 userId: authUser._id,
                 fullName: authUser.fullName,
                 profilePic: authUser.profilePic,
+                videoOn: room.type === "video",
             });
         }
 
@@ -911,6 +936,7 @@ export const useChatStore = create((set, get) => ({
                 userId: authUser._id,
                 fullName: authUser.fullName,
                 profilePic: authUser.profilePic,
+                videoOn: activeCall.type === "video",
             });
             const selfParticipant = {
                 userId: authUser._id,
@@ -991,6 +1017,23 @@ export const useChatStore = create((set, get) => ({
 
     closeCallOverlay: () => {
         set({ activeCall: null });
+        const { selectedUser } = get();
+        if (selectedUser) {
+            const key = normId(selectedUser._id);
+            const counts = { ...get().unreadCounts };
+            if (counts[key]) {
+                delete counts[key];
+                set({ unreadCounts: counts });
+                persistUnreadCounts(counts);
+            }
+            const socket = useAuthStore.getState().socket;
+            const authUser = useAuthStore.getState().authUser;
+            if (socket && authUser) {
+                socket.emit("userOpenedChat", { openerId: authUser._id, recipientId: selectedUser._id });
+            }
+            get().getMessages(selectedUser._id);
+            get().subscribeToMessages();
+        }
     },
 
     logMissedCall: async () => {

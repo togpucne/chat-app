@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import { Monitor } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Monitor, Maximize2, Minimize2 } from "lucide-react";
 
 function SpeakingWaves() {
     return (
@@ -24,6 +24,7 @@ function ParticipantTile({
     isSpeaking,
     isScreenShare,
     isLarge,
+    onClick,
 }) {
     const videoRef = useRef(null);
 
@@ -31,16 +32,19 @@ function ParticipantTile({
         if (videoRef.current) {
             videoRef.current.srcObject = showVideo && stream ? stream : null;
         }
-    }, [stream, showVideo]);
+    }, [stream, showVideo, isScreenShare, stream?.getVideoTracks()[0]?.id]);
 
     return (
         <div
-            className={`relative bg-slate-900 rounded-xl overflow-hidden flex items-center justify-center transition-all duration-300 ${
-                isLarge ? "w-full min-h-[220px] sm:min-h-[280px]" : "aspect-video min-h-[120px]"
+            onClick={onClick}
+            className={`relative bg-slate-900 rounded-xl overflow-hidden flex items-center justify-center transition-all duration-300 cursor-pointer group/tile ${
+                isLarge 
+                    ? "w-full min-h-[260px] sm:min-h-[380px] md:min-h-[460px] lg:min-h-[520px]" 
+                    : "aspect-video min-h-[120px]"
             } ${
                 isSpeaking
                     ? "border-2 border-green-400 shadow-[0_0_20px_rgba(74,222,128,0.45)] ring-2 ring-green-400/50"
-                    : "border border-slate-700/80"
+                    : "border border-slate-700/80 hover:border-slate-500"
             }`}
         >
             {isSpeaking && (
@@ -75,6 +79,23 @@ function ParticipantTile({
                     Chia sẻ màn hình
                 </div>
             )}
+
+            {/* Hover overlay to zoom / click-to-enlarge */}
+            <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center z-20">
+                <div className="bg-slate-900/90 border border-slate-700/50 rounded-xl px-4 py-2 flex items-center gap-2 text-xs font-bold text-white shadow-xl pointer-events-none">
+                    {isLarge ? (
+                        <>
+                            <Minimize2 className="size-4 text-rose-400" />
+                            Thu nhỏ màn hình
+                        </>
+                    ) : (
+                        <>
+                            <Maximize2 className="size-4 text-emerald-400" />
+                            Bấm để phóng to
+                        </>
+                    )}
+                </div>
+            </div>
 
             {isSpeaking && <SpeakingWaves />}
 
@@ -115,21 +136,24 @@ export default function GroupCallGrid({
     remoteStreams = {},
     remoteVideoOn = {},
     speaking = {},
-    screenShareUserId = null,
+    screenShareUserIds = {}, // accepts map of user ids sharing screens
 }) {
+    const [featuredUserId, setFeaturedUserId] = useState(null);
+
     const tiles = (participants || []).map((p) => {
         const id = p.userId?.toString();
         const isSelf = id === myId;
-        const isSharer = screenShareUserId && id === screenShareUserId;
+        const isSharer = Boolean(screenShareUserIds && screenShareUserIds[id]);
         const stream = isSelf
             ? isSharer && screenStream
                 ? screenStream
                 : localStream
             : remoteStreams[id];
-        const showVideo =
-            isSharer ||
-            (callType === "video" &&
-                (isSelf ? (!isVideoOff || isSharer) && !!stream : remoteVideoOn[id]));
+        const showVideo = isSelf
+            ? (isSharer ? !!screenStream : !isVideoOff && !!localStream)
+            : (isSharer 
+                ? (remoteVideoOn[id] && !!stream) 
+                : (p.videoOn && remoteVideoOn[id] && !!stream));
         return {
             id,
             name: isSelf ? authUser?.fullName || "Bạn" : p.fullName || "Thành viên",
@@ -139,19 +163,39 @@ export default function GroupCallGrid({
             isSelf,
             isSpeaking: Boolean(speaking[id]),
             isScreenShare: Boolean(isSharer),
-            isLarge: Boolean(isSharer),
         };
     });
 
-    const featured = tiles.find((t) => t.isLarge);
-    const rest = featured ? tiles.filter((t) => !t.isLarge) : tiles;
+    // Determine the featured user (default to first active screen share if no manual zoom)
+    const activeFeaturedId =
+        featuredUserId && tiles.some((t) => t.id === featuredUserId)
+            ? featuredUserId
+            : tiles.find((t) => t.isScreenShare)?.id || null;
+
+    const featured = tiles.find((t) => t.id === activeFeaturedId);
+    const rest = featured ? tiles.filter((t) => t.id !== activeFeaturedId) : tiles;
+
+    const handleTileClick = (id) => {
+        setFeaturedUserId((prev) => (prev === id ? null : id));
+    };
 
     return (
-        <div className="flex-1 w-full p-4 pt-20 pb-32 overflow-y-auto z-10 flex flex-col gap-3 max-w-5xl mx-auto">
-            {featured && <ParticipantTile {...featured} isLarge />}
+        <div className="flex-1 w-full p-4 pt-20 pb-32 overflow-y-auto z-10 flex flex-col gap-4 max-w-5xl mx-auto">
+            {featured && (
+                <ParticipantTile
+                    {...featured}
+                    isLarge={true}
+                    onClick={() => handleTileClick(featured.id)}
+                />
+            )}
             <div className={`grid ${gridClass(rest.length, !!featured)} gap-2 sm:gap-3 w-full`}>
                 {rest.map((t) => (
-                    <ParticipantTile key={t.id} {...t} isLarge={false} />
+                    <ParticipantTile
+                        key={t.id}
+                        {...t}
+                        isLarge={false}
+                        onClick={() => handleTileClick(t.id)}
+                    />
                 ))}
             </div>
             {Object.entries(remoteStreams).map(([id, stream]) => (

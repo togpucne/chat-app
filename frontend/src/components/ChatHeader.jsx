@@ -1,5 +1,5 @@
 import { X, Search, Info, UserPlus, Loader2, UserMinus, Phone, Video, MessageSquare, LogOut, Pencil, Globe, FileText, Link2, Camera, Target } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
@@ -31,6 +31,14 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
     const [callType, setCallType] = useState("video");
     const [selectedMembers, setSelectedMembers] = useState([]);
     const [memberSearchQuery, setMemberSearchQuery] = useState("");
+    const [ticker, setTicker] = useState(0);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setTicker((t) => t + 1);
+        }, 15000);
+        return () => clearInterval(interval);
+    }, []);
     
     const isGroup = selectedUser?.isGroup;
     const isFriend = !isGroup && authUser?.friends?.some(id => (typeof id === "object" ? id._id : id).toString() === selectedUser?._id?.toString());

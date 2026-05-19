@@ -37,14 +37,26 @@ export function parseCallMissed(text) {
 /** Human-readable label for call system tags (sidebar / group preview). */
 export function formatCallSystemText(text) {
     if (!text) return null;
-    const missed = parseCallMissed(text);
-    if (missed) {
-        return missed.media === "video" ? "Cuộc gọi video nhỡ" : "Cuộc gọi thoại nhỡ";
+    
+    let prefix = "";
+    let cleanText = text;
+    
+    // Check if the message contains a prefix like "SenderName: " (e.g. from backend group chat lastMessage)
+    const colonIndex = text.indexOf(": [CALL");
+    if (colonIndex !== -1) {
+        prefix = text.substring(0, colonIndex + 2); // e.g. "Judoit Nguyen: "
+        cleanText = text.substring(colonIndex + 2); // e.g. "[CALL_VIDEO_COMPLETED:14]"
     }
-    const completed = parseCallCompleted(text);
+    
+    const missed = parseCallMissed(cleanText);
+    if (missed) {
+        const label = missed.media === "video" ? "Cuộc gọi video nhỡ" : "Cuộc gọi thoại nhỡ";
+        return `${prefix}${label}`;
+    }
+    const completed = parseCallCompleted(cleanText);
     if (completed) {
         const label = completed.media === "video" ? "Cuộc gọi video" : "Cuộc gọi thoại";
-        return `${label} · ${formatCallDurationVi(completed.seconds)}`;
+        return `${prefix}${label} · ${formatCallDurationVi(completed.seconds)}`;
     }
     return null;
 }

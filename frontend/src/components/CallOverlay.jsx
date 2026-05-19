@@ -17,9 +17,14 @@ export default function CallOverlay() {
     const [localStream, setLocalStream] = useState(null);
     const [remoteStream, setRemoteStream] = useState(null);
     const [remoteHasVideo, setRemoteHasVideo] = useState(false);
+    const [remoteCameraEnabled, setRemoteCameraEnabled] = useState(true);
     const [screenStream, setScreenStream] = useState(null);
     const [isScreenSharing, setIsScreenSharing] = useState(false);
-    const [groupScreenShareUserId, setGroupScreenShareUserId] = useState(null);
+    const [groupScreenShareUsers, setGroupScreenShareUsers] = useState(() => {
+        if (!activeCall?.isGroup) return {};
+        const room = useChatStore.getState().groupCalls[activeCall.receiverId];
+        return room?.screenSharers || {};
+    });
     
     const videoRef = useRef(null);
     const screenStreamRef = useRef(null);
@@ -116,9 +121,6 @@ export default function CallOverlay() {
         remoteStreams,
     });
 
-    const screenShareUserId =
-        groupScreenShareUserId || (isScreenSharing ? myId : null);
-
     const stopScreenShare = async () => {
         const stream = screenStreamRef.current;
         if (stream) {
@@ -127,7 +129,12 @@ export default function CallOverlay() {
         }
         setScreenStream(null);
         setIsScreenSharing(false);
-        if (myId) setGroupScreenShareUserId((prev) => (prev === myId ? null : prev));
+        if (myId) {
+            setGroupScreenShareUsers((prev) => ({
+                ...prev,
+                [myId]: false,
+            }));
+        }
 
         if (isGroupConnected && socket && activeCall?.receiverId) {
             socket.emit("groupScreenShare", {
@@ -152,8 +159,8 @@ export default function CallOverlay() {
         }
         try {
             const displayStream = await navigator.mediaDevices.getDisplayMedia({
-                video: { displaySurface: "monitor" },
-                audio: false,
+                video: true,
+                audio: true,
             });
             const screenTrack = displayStream.getVideoTracks()[0];
             if (!screenTrack) {
@@ -167,7 +174,14 @@ export default function CallOverlay() {
             screenStreamRef.current = displayStream;
             setScreenStream(displayStream);
             setIsScreenSharing(true);
-            setGroupScreenShareUserId(myId);
+            setIsMuted(true); // default to muted as requested!
+            
+            if (myId) {
+                setGroupScreenShareUsers((prev) => ({
+                    ...prev,
+                    [myId]: true,
+                }));
+            }
 
             screenTrack.onended = () => stopScreenShare();
 
@@ -179,7 +193,10 @@ export default function CallOverlay() {
                 active: true,
                 userName: authUser?.fullName,
             });
-            toast.success("Đang chia sẻ màn hình");
+            toast.success("Đang chia sẻ màn hình! Chú ý: Để chia sẻ Zalo hay Thư mục, hãy chắc chắn ứng dụng đang MỞ (không thu nhỏ) và chọn tab 'Cửa sổ' (Window) hoặc 'Toàn màn hình' trong hộp thoại chia sẻ của trình duyệt!", {
+                duration: 8000,
+                icon: '🖥️'
+            });
         } catch (err) {
             if (err?.name !== "NotAllowedError") {
                 toast.error("Không thể chia sẻ màn hình");
@@ -189,17 +206,31 @@ export default function CallOverlay() {
 
     useEffect(() => {
         if (!socket || !isGroupConnected) return;
+        
         const onShare = ({ groupId, userId, active }) => {
             if (groupId !== activeCall?.receiverId) return;
             const uid = userId?.toString();
-            if (active) {
-                setGroupScreenShareUserId(uid);
-            } else {
-                setGroupScreenShareUserId((prev) => (prev === uid ? null : prev));
+            setGroupScreenShareUsers((prev) => ({
+                ...prev,
+                [uid]: Boolean(active),
+            }));
+        };
+
+        const onGroupUpdated = (state) => {
+            if (state?.groupId === activeCall?.receiverId && state?.screenSharers) {
+                setGroupScreenShareUsers(state.screenSharers);
             }
         };
+
         socket.on("groupScreenShare", onShare);
-        return () => socket.off("groupScreenShare", onShare);
+        socket.on("groupCallUpdated", onGroupUpdated);
+        socket.on("groupCallState", onGroupUpdated);
+        
+        return () => {
+            socket.off("groupScreenShare", onShare);
+            socket.off("groupCallUpdated", onGroupUpdated);
+            socket.off("groupCallState", onGroupUpdated);
+        };
     }, [socket, isGroupConnected, activeCall?.receiverId]);
 
     useEffect(() => {
@@ -318,13 +349,14 @@ export default function CallOverlay() {
         }
         setScreenStream(null);
         setIsScreenSharing(false);
-        setGroupScreenShareUserId(null);
+        setGroupScreenShareUsers({});
         stopCamera();
         if (peerConnectionRef.current) {
             peerConnectionRef.current.close();
             peerConnectionRef.current = null;
         }
         setRemoteStream(null);
+        setRemoteCameraEnabled(true);
         cleanupMesh?.();
     };
 
@@ -436,6 +468,8 @@ export default function CallOverlay() {
                     await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
                 } else if (signal.type === "candidate") {
                     await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+                } else if (signal.type === "videoToggle") {
+                    setRemoteCameraEnabled(signal.enabled);
                 }
             } catch (err) {
                 console.error("Error processing WebRTC signal:", err);
@@ -490,27 +524,12 @@ export default function CallOverlay() {
                 return;
             }
             const t = tracks[0];
-            setRemoteHasVideo(t.readyState === "live" && t.enabled && !t.muted);
+            setRemoteHasVideo(t.readyState === "live" && t.enabled && remoteCameraEnabled);
         };
         check();
-        const cleanups = [];
-        remoteStream.getVideoTracks().forEach((track) => {
-            const onChange = () => check();
-            track.addEventListener("ended", onChange);
-            track.addEventListener("mute", onChange);
-            track.addEventListener("unmute", onChange);
-            cleanups.push(() => {
-                track.removeEventListener("ended", onChange);
-                track.removeEventListener("mute", onChange);
-                track.removeEventListener("unmute", onChange);
-            });
-        });
-        const interval = setInterval(check, 900);
-        return () => {
-            clearInterval(interval);
-            cleanups.forEach((fn) => fn());
-        };
-    }, [remoteStream]);
+        const interval = setInterval(check, 500); // 500ms reactive interval is blazing fast and extremely robust
+        return () => clearInterval(interval);
+    }, [remoteStream, remoteCameraEnabled]);
 
     // Reactive binding for remote video element
     useEffect(() => {
@@ -717,7 +736,7 @@ export default function CallOverlay() {
                             remoteStreams={remoteStreams}
                             remoteVideoOn={remoteVideoOn}
                             speaking={speaking}
-                            screenShareUserId={screenShareUserId}
+                            screenShareUserIds={groupScreenShareUsers}
                         />
                     </>
                 ) : (
@@ -814,7 +833,23 @@ export default function CallOverlay() {
                 {/* Toggle camera control (Video calls only) */}
                 {activeCall.type === "video" && (
                     <button 
-                        onClick={() => setIsVideoOff(prev => !prev)}
+                        onClick={() => {
+                            const nextVal = !isVideoOff;
+                            setIsVideoOff(nextVal);
+                            if (isGroupConnected && socket && activeCall?.receiverId) {
+                                socket.emit("groupVideoToggle", {
+                                    groupId: activeCall.receiverId,
+                                    userId: authUser?._id,
+                                    enabled: !nextVal,
+                                });
+                            } else if (!isGroupConnected && socket) {
+                                const targetId = activeCall.isIncoming ? activeCall.callerId : activeCall.receiverId;
+                                socket.emit("webrtcSignal", {
+                                    targetId,
+                                    signal: { type: "videoToggle", enabled: !nextVal }
+                                });
+                            }
+                        }}
                         className={`size-12 rounded-full flex items-center justify-center transition-all ${isVideoOff ? "bg-red-500 text-white" : "bg-slate-800/80 text-slate-300 hover:bg-slate-700 border border-slate-700/50"}`}
                         title={isVideoOff ? "Bật camera" : "Tắt camera"}
                     >

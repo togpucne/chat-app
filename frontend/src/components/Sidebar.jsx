@@ -100,6 +100,7 @@ const Sidebar = () => {
     const onlineFriendsCount = onlineUsers.filter(id => authUser?.friends?.includes(id)).length;
     const [showOnlineOnly, setShowOnlineOnly] = useState(false);
     const [pinnedToggle, setPinnedToggle] = useState(false);
+    const [ticker, setTicker] = useState(0);
 
     // Group creation states
     const [isCreateGroupModalOpen, setIsCreateGroupModalOpen] = useState(false);
@@ -184,6 +185,13 @@ const Sidebar = () => {
     useEffect(() => {
         getUsers();
     }, [getUsers]);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setTicker((t) => t + 1);
+        }, 15000);
+        return () => clearInterval(interval);
+    }, []);
 
     const filteredUsers = (showOnlineOnly ? users.filter((user) => onlineUsers.includes(user._id)) : users)
         .filter(user => {

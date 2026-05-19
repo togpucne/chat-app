@@ -6,7 +6,7 @@ const ICE_SERVERS = [
 ];
 
 function trackHasLiveVideo(track) {
-    return track && track.readyState === "live" && track.enabled && !track.muted;
+    return track && track.readyState === "live" && track.enabled;
 }
 
 export function useGroupCallMesh({
@@ -24,11 +24,12 @@ export function useGroupCallMesh({
 
     const updateRemoteVideo = useCallback((userId, stream) => {
         if (!stream) {
-            setRemoteVideoOn((prev) => ({ ...prev, [userId]: false }));
+            setRemoteVideoOn((prev) => prev[userId] === false ? prev : { ...prev, [userId]: false });
             return;
         }
         const vt = stream.getVideoTracks()[0];
-        setRemoteVideoOn((prev) => ({ ...prev, [userId]: trackHasLiveVideo(vt) }));
+        const isLive = trackHasLiveVideo(vt);
+        setRemoteVideoOn((prev) => prev[userId] === isLive ? prev : { ...prev, [userId]: isLive });
     }, []);
 
     const cleanupPeer = useCallback((remoteId) => {
@@ -59,19 +60,30 @@ export function useGroupCallMesh({
 
     const replaceOutgoingVideoTrack = useCallback(async (videoTrack) => {
         const tasks = [];
-        peersRef.current.forEach((pc) => {
+        peersRef.current.forEach(async (pc, remoteId) => {
             const sender = pc.getSenders().find((s) => s.track?.kind === "video");
             if (sender) {
                 tasks.push(sender.replaceTrack(videoTrack));
             } else if (videoTrack && localStream) {
                 pc.addTrack(videoTrack, localStream);
+                try {
+                    const offer = await pc.createOffer();
+                    await pc.setLocalDescription(offer);
+                    socket?.emit("webrtcSignal", {
+                        targetId: remoteId,
+                        groupId,
+                        signal: { type: "offer", sdp: pc.localDescription },
+                    });
+                } catch (err) {
+                    console.error("Renegotiation offer failed for peer", remoteId, err);
+                }
             }
         });
         await Promise.all(tasks);
         if (myId) {
             setRemoteVideoOn((prev) => ({ ...prev, [myId]: trackHasLiveVideo(videoTrack) }));
         }
-    }, [localStream, myId]);
+    }, [localStream, myId, socket, groupId]);
 
     const saveCameraTrack = useCallback((track) => {
         if (track?.kind === "video") cameraVideoTrackRef.current = track;
@@ -215,7 +227,8 @@ export function useGroupCallMesh({
         const interval = setInterval(() => {
             setRemoteStreams((prev) => {
                 Object.entries(prev).forEach(([id, stream]) => updateRemoteVideo(id, stream));
-                return prev;
+                if (Object.keys(prev).length === 0) return prev;
+                return { ...prev };
             });
         }, 800);
         return () => clearInterval(interval);

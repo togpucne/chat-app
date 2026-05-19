@@ -135,6 +135,7 @@ const ChatContainer = () => {
 
     const [viewingImage, setViewingImage] = useState(null);
     const [rotation, setRotation] = useState(0);
+    const [ticker, setTicker] = useState(0);
 
     const [isEditingGroupName, setIsEditingGroupName] = useState(false);
     const [newGroupName, setNewGroupName] = useState("");
@@ -375,6 +376,13 @@ const ChatContainer = () => {
         const handleOpenImage = (e) => setViewingImage(e.detail);
         window.addEventListener("open-image-viewer", handleOpenImage);
         return () => window.removeEventListener("open-image-viewer", handleOpenImage);
+    }, []);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setTicker((t) => t + 1);
+        }, 15000);
+        return () => clearInterval(interval);
     }, []);
 
     // Tự động cuộn xuống khi có tin nhắn mới hoặc trạng thái đang nhập thay đổi
