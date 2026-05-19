@@ -273,6 +273,16 @@ io.on("connection", (socket) => {
         });
     });
 
+    socket.on("groupScreenShare", ({ groupId, userId, active, userName }) => {
+        if (!groupId) return;
+        emitGroupCallToMembers(groupId, "groupScreenShare", {
+            groupId,
+            userId,
+            active: Boolean(active),
+            userName: userName || "",
+        });
+    });
+
     socket.on("leaveGroupCall", ({ groupId, userId }) => {
         const room = groupCallRooms[groupId];
         if (!room || !userId) return;

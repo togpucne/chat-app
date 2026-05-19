@@ -18,6 +18,7 @@ export function useGroupCallMesh({
     socket,
 }) {
     const peersRef = useRef(new Map());
+    const cameraVideoTrackRef = useRef(null);
     const [remoteStreams, setRemoteStreams] = useState({});
     const [remoteVideoOn, setRemoteVideoOn] = useState({});
 
@@ -51,9 +52,32 @@ export function useGroupCallMesh({
     const cleanupAll = useCallback(() => {
         peersRef.current.forEach((pc) => pc.close());
         peersRef.current.clear();
+        cameraVideoTrackRef.current = null;
         setRemoteStreams({});
         setRemoteVideoOn({});
     }, []);
+
+    const replaceOutgoingVideoTrack = useCallback(async (videoTrack) => {
+        const tasks = [];
+        peersRef.current.forEach((pc) => {
+            const sender = pc.getSenders().find((s) => s.track?.kind === "video");
+            if (sender) {
+                tasks.push(sender.replaceTrack(videoTrack));
+            } else if (videoTrack && localStream) {
+                pc.addTrack(videoTrack, localStream);
+            }
+        });
+        await Promise.all(tasks);
+        if (myId) {
+            setRemoteVideoOn((prev) => ({ ...prev, [myId]: trackHasLiveVideo(videoTrack) }));
+        }
+    }, [localStream, myId]);
+
+    const saveCameraTrack = useCallback((track) => {
+        if (track?.kind === "video") cameraVideoTrackRef.current = track;
+    }, []);
+
+    const getSavedCameraTrack = useCallback(() => cameraVideoTrackRef.current, []);
 
     const createPeerConnection = useCallback(
         (remoteId) => {
@@ -212,5 +236,12 @@ export function useGroupCallMesh({
         });
     }, [enabled, localStream]);
 
-    return { remoteStreams, remoteVideoOn, cleanupAll };
+    return {
+        remoteStreams,
+        remoteVideoOn,
+        cleanupAll,
+        replaceOutgoingVideoTrack,
+        saveCameraTrack,
+        getSavedCameraTrack,
+    };
 }

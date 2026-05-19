@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useChatStore } from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
-import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, X } from "lucide-react";
+import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, X, Monitor, MonitorOff } from "lucide-react";
 import GroupCallGrid from "./GroupCallGrid";
 import { useGroupCallMesh } from "../hooks/useGroupCallMesh";
+import { useSpeakingDetector } from "../hooks/useSpeakingDetector";
+import toast from "react-hot-toast";
 
 export default function CallOverlay() {
     const { activeCall, acceptCall, rejectCall, endCall, closeCallOverlay, initiateCall } = useChatStore();
@@ -15,8 +17,12 @@ export default function CallOverlay() {
     const [localStream, setLocalStream] = useState(null);
     const [remoteStream, setRemoteStream] = useState(null);
     const [remoteHasVideo, setRemoteHasVideo] = useState(false);
+    const [screenStream, setScreenStream] = useState(null);
+    const [isScreenSharing, setIsScreenSharing] = useState(false);
+    const [groupScreenShareUserId, setGroupScreenShareUserId] = useState(null);
     
     const videoRef = useRef(null);
+    const screenStreamRef = useRef(null);
     const remoteVideoRef = useRef(null);
     const peerConnectionRef = useRef(null);
     const ringtoneIntervalRef = useRef(null);
@@ -86,7 +92,14 @@ export default function CallOverlay() {
         return list;
     }, [activeCall?.participants, activeCall?.isGroup, authUser, myId]);
 
-    const { remoteStreams, remoteVideoOn, cleanupAll: cleanupMesh } = useGroupCallMesh({
+    const {
+        remoteStreams,
+        remoteVideoOn,
+        cleanupAll: cleanupMesh,
+        replaceOutgoingVideoTrack,
+        saveCameraTrack,
+        getSavedCameraTrack,
+    } = useGroupCallMesh({
         enabled: isGroupConnected,
         localStream,
         myId,
@@ -94,6 +107,105 @@ export default function CallOverlay() {
         groupId: activeCall?.receiverId,
         socket,
     });
+
+    const speaking = useSpeakingDetector({
+        enabled: isGroupConnected,
+        myId,
+        localStream,
+        isMuted,
+        remoteStreams,
+    });
+
+    const screenShareUserId =
+        groupScreenShareUserId || (isScreenSharing ? myId : null);
+
+    const stopScreenShare = async () => {
+        const stream = screenStreamRef.current;
+        if (stream) {
+            stream.getTracks().forEach((t) => t.stop());
+            screenStreamRef.current = null;
+        }
+        setScreenStream(null);
+        setIsScreenSharing(false);
+        if (myId) setGroupScreenShareUserId((prev) => (prev === myId ? null : prev));
+
+        if (isGroupConnected && socket && activeCall?.receiverId) {
+            socket.emit("groupScreenShare", {
+                groupId: activeCall.receiverId,
+                userId: authUser?._id,
+                active: false,
+                userName: authUser?.fullName,
+            });
+            const cam = getSavedCameraTrack?.();
+            const videoTrack =
+                cam && cam.readyState === "live"
+                    ? cam
+                    : localStream?.getVideoTracks?.()[0] || null;
+            await replaceOutgoingVideoTrack?.(videoTrack);
+        }
+    };
+
+    const startScreenShare = async () => {
+        if (!isGroupConnected) {
+            toast.error("Chia sẻ màn hình chỉ hỗ trợ cuộc gọi nhóm");
+            return;
+        }
+        try {
+            const displayStream = await navigator.mediaDevices.getDisplayMedia({
+                video: { displaySurface: "monitor" },
+                audio: false,
+            });
+            const screenTrack = displayStream.getVideoTracks()[0];
+            if (!screenTrack) {
+                displayStream.getTracks().forEach((t) => t.stop());
+                return;
+            }
+
+            const camTrack = localStream?.getVideoTracks?.()[0];
+            if (camTrack) saveCameraTrack?.(camTrack);
+
+            screenStreamRef.current = displayStream;
+            setScreenStream(displayStream);
+            setIsScreenSharing(true);
+            setGroupScreenShareUserId(myId);
+
+            screenTrack.onended = () => stopScreenShare();
+
+            await replaceOutgoingVideoTrack?.(screenTrack);
+
+            socket?.emit("groupScreenShare", {
+                groupId: activeCall.receiverId,
+                userId: authUser?._id,
+                active: true,
+                userName: authUser?.fullName,
+            });
+            toast.success("Đang chia sẻ màn hình");
+        } catch (err) {
+            if (err?.name !== "NotAllowedError") {
+                toast.error("Không thể chia sẻ màn hình");
+            }
+        }
+    };
+
+    useEffect(() => {
+        if (!socket || !isGroupConnected) return;
+        const onShare = ({ groupId, userId, active }) => {
+            if (groupId !== activeCall?.receiverId) return;
+            const uid = userId?.toString();
+            if (active) {
+                setGroupScreenShareUserId(uid);
+            } else {
+                setGroupScreenShareUserId((prev) => (prev === uid ? null : prev));
+            }
+        };
+        socket.on("groupScreenShare", onShare);
+        return () => socket.off("groupScreenShare", onShare);
+    }, [socket, isGroupConnected, activeCall?.receiverId]);
+
+    useEffect(() => {
+        if (activeCall?.status === "connected") return;
+        if (screenStreamRef.current) stopScreenShare();
+    }, [activeCall?.status]);
 
     // Play synthetic ringtone using Web Audio API
     const startRingtone = (incoming = false) => {
@@ -172,6 +284,8 @@ export default function CallOverlay() {
             };
             const stream = await navigator.mediaDevices.getUserMedia(constraints);
             setLocalStream(stream);
+            const vt = stream.getVideoTracks()[0];
+            if (vt && activeCall?.isGroup) saveCameraTrack?.(vt);
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
             }
@@ -198,6 +312,13 @@ export default function CallOverlay() {
     };
 
     const cleanupWebRTC = () => {
+        if (screenStreamRef.current) {
+            screenStreamRef.current.getTracks().forEach((t) => t.stop());
+            screenStreamRef.current = null;
+        }
+        setScreenStream(null);
+        setIsScreenSharing(false);
+        setGroupScreenShareUserId(null);
         stopCamera();
         if (peerConnectionRef.current) {
             peerConnectionRef.current.close();
@@ -590,10 +711,13 @@ export default function CallOverlay() {
                             myId={myId}
                             authUser={authUser}
                             localStream={localStream}
+                            screenStream={screenStream}
                             isVideoOff={isVideoOff}
                             callType={activeCall.type}
                             remoteStreams={remoteStreams}
                             remoteVideoOn={remoteVideoOn}
+                            speaking={speaking}
+                            screenShareUserId={screenShareUserId}
                         />
                     </>
                 ) : (
@@ -695,6 +819,25 @@ export default function CallOverlay() {
                         title={isVideoOff ? "Bật camera" : "Tắt camera"}
                     >
                         {isVideoOff ? <VideoOff className="size-5" /> : <Video className="size-5" />}
+                    </button>
+                )}
+
+                {isGroupConnected && (
+                    <button
+                        type="button"
+                        onClick={() => (isScreenSharing ? stopScreenShare() : startScreenShare())}
+                        className={`size-12 rounded-full flex items-center justify-center transition-all ${
+                            isScreenSharing
+                                ? "bg-blue-600 text-white ring-2 ring-blue-400"
+                                : "bg-slate-800/80 text-slate-300 hover:bg-slate-700 border border-slate-700/50"
+                        }`}
+                        title={isScreenSharing ? "Dừng chia sẻ màn hình" : "Chia sẻ màn hình"}
+                    >
+                        {isScreenSharing ? (
+                            <MonitorOff className="size-5" />
+                        ) : (
+                            <Monitor className="size-5" />
+                        )}
                     </button>
                 )}
 
