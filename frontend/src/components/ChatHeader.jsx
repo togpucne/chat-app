@@ -1,6 +1,9 @@
-import { X, Search, Info } from "lucide-react";
+import { X, Search, Info, UserPlus, Loader2 } from "lucide-react";
+import { useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
+import toast from "react-hot-toast";
+import { GroupAvatar } from "./GroupAvatar";
 
 const formatLastActive = (updatedAt, isOnline) => {
     if (isOnline) return "Đang hoạt động";
@@ -18,21 +21,23 @@ const formatLastActive = (updatedAt, isOnline) => {
     return "offline";
 };
 
-const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOpen }) => {
+const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOpen, onOpenAddMember }) => {
     const { selectedUser, setSelectedUser } = useChatStore();
     const { onlineUsers, authUser } = useAuthStore();
-    const isFriend = authUser?.friends?.includes(selectedUser._id);
+    
+    const isGroup = selectedUser?.isGroup;
+    const isFriend = !isGroup && authUser?.friends?.includes(selectedUser._id);
 
     return (
-        <div className="p-3 border-b border-base-300 bg-base-100/90 backdrop-blur-sm select-none">
+        <div className="p-3 border-b border-base-300 bg-base-100/90 backdrop-blur-sm select-none relative">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     {/* Avatar */}
                     <div className="avatar relative flex-shrink-0">
-                        <div className="size-10 rounded-full">
-                            <img src={selectedUser.profilePic || "/avatar.png"} alt={selectedUser.fullName} />
+                        <div className="size-10 flex items-center justify-center">
+                            <GroupAvatar user={selectedUser} size="size-10" />
                         </div>
-                        {isFriend && onlineUsers.includes(selectedUser._id) && (
+                        {!isGroup && isFriend && onlineUsers.includes(selectedUser._id) && (
                             <span className="absolute bottom-0.5 right-0.5 size-2.5 bg-green-500 rounded-full z-10 ring-2 ring-white"></span>
                         )}
                     </div>
@@ -40,21 +45,39 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                     {/* User info */}
                     <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                            <h3 className="font-medium text-sm text-base-content truncate">{selectedUser.fullName}</h3>
-                            {!isFriend && (
+                            <h3 className="font-semibold text-sm text-base-content truncate">{selectedUser.fullName}</h3>
+                            {!isGroup && !isFriend && (
                                 <span className="bg-slate-200 text-slate-700 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase flex-shrink-0">Người lạ</span>
                             )}
+                            {isGroup && (
+                                <span className="bg-primary/10 text-primary text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase flex-shrink-0">Nhóm</span>
+                            )}
                         </div>
-                        <p className="text-xs text-base-content/50 truncate">
-                            {isFriend 
-                                ? formatLastActive(selectedUser.updatedAt, onlineUsers.includes(selectedUser._id))
-                                : "Chưa kết bạn (Không chia sẻ trạng thái hoạt động)"}
+                        <p className="text-xs text-base-content/50 truncate mt-0.5">
+                            {isGroup ? (
+                                `Nhóm • ${selectedUser.members?.length || 0} thành viên`
+                            ) : isFriend ? (
+                                formatLastActive(selectedUser.updatedAt, onlineUsers.includes(selectedUser._id))
+                            ) : (
+                                "Chưa kết bạn (Không chia sẻ trạng thái hoạt động)"
+                            )}
                         </p>
                     </div>
                 </div>
 
                 {/* Header Controls */}
                 <div className="flex items-center gap-2">
+                    {/* Add member button (Only for groups) */}
+                    {isGroup && (
+                        <button
+                            onClick={onOpenAddMember}
+                            className="btn btn-ghost btn-circle btn-sm text-primary hover:bg-primary/10"
+                            title="Thêm người vào nhóm"
+                        >
+                            <UserPlus className="size-4" />
+                        </button>
+                    )}
+
                     {/* Search button */}
                     <button 
                         onClick={onToggleSearch}
@@ -85,6 +108,8 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                     </button>
                 </div>
             </div>
+
+
         </div>
     );
 };

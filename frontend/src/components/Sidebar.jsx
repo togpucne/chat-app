@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { useChatStore } from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
 import SidebarSkeleton from "./skeletons/SidebarSkeleton";
-import { Users, BellOff, Pin, Search, Phone, X, Loader2, UserPlus } from "lucide-react";
+import { Users, BellOff, Pin, Search, Phone, X, Loader2, UserPlus, Camera, Check } from "lucide-react";
 import { axiosInstance } from "../lib/axios";
+import toast from "react-hot-toast";
+import { GroupAvatar } from "./GroupAvatar";
 
 const formatMessageTime = (createdAt) => {
     if (!createdAt) return "";
@@ -81,13 +83,62 @@ const Sidebar = () => {
         selectedUser,
         setSelectedUser,
         isUsersLoading,
-        unreadCounts
+        unreadCounts,
+        createGroup
     } = useChatStore();
 
     const { onlineUsers, authUser, acceptFriendRequest, rejectFriendRequest } = useAuthStore();
     const onlineFriendsCount = onlineUsers.filter(id => authUser?.friends?.includes(id)).length;
     const [showOnlineOnly, setShowOnlineOnly] = useState(false);
     const [pinnedToggle, setPinnedToggle] = useState(false);
+
+    // Group creation states
+    const [isCreateGroupModalOpen, setIsCreateGroupModalOpen] = useState(false);
+    const [groupName, setGroupName] = useState("");
+    const [groupPic, setGroupPic] = useState("");
+    const [groupSearchQuery, setGroupSearchQuery] = useState("");
+    const [selectedFriends, setSelectedFriends] = useState([]);
+    const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+
+    const handleGroupPicUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+            setGroupPic(reader.result);
+        };
+    };
+
+    const handleCreateGroup = async (e) => {
+        e.preventDefault();
+        if (!groupName.trim()) {
+            toast.error("Vui lòng nhập tên nhóm");
+            return;
+        }
+        if (selectedFriends.length < 2) {
+            toast.error("Nhóm chat phải có từ 3 thành viên trở lên (bao gồm bạn và ít nhất 2 bạn bè)");
+            return;
+        }
+
+        setIsCreatingGroup(true);
+        try {
+            await createGroup({
+                name: groupName.trim(),
+                members: selectedFriends,
+                groupPic: groupPic || null
+            });
+            setIsCreateGroupModalOpen(false);
+            setGroupName("");
+            setGroupPic("");
+            setSelectedFriends([]);
+            setGroupSearchQuery("");
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsCreatingGroup(false);
+        }
+    };
 
     const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
     const [phoneQuery, setPhoneQuery] = useState("");
@@ -166,13 +217,23 @@ const Sidebar = () => {
                     </button>
                 </div>
                 
-                <button 
-                    onClick={() => setIsPhoneModalOpen(true)}
-                    className="w-full btn btn-sm btn-outline border-base-300 hover:border-primary hover:bg-primary/5 hover:text-primary text-xs flex items-center justify-start gap-2 shadow-sm font-normal rounded-lg transition-all"
-                >
-                    <Search className="size-3.5 text-base-content/60 flex-shrink-0" />
-                    <span className="truncate">Tìm bạn qua số điện thoại...</span>
-                </button>
+                <div className="flex gap-2">
+                    <button 
+                        onClick={() => setIsPhoneModalOpen(true)}
+                        className="flex-1 btn btn-sm btn-outline border-base-300 hover:border-primary hover:bg-primary/5 hover:text-primary text-xs flex items-center justify-start gap-2 shadow-sm font-normal rounded-lg transition-all"
+                    >
+                        <Search className="size-3.5 text-base-content/60 flex-shrink-0" />
+                        <span className="truncate lg:block hidden">Tìm bạn qua số ĐT...</span>
+                        <span className="truncate lg:hidden block">Tìm</span>
+                    </button>
+                    <button
+                        onClick={() => setIsCreateGroupModalOpen(true)}
+                        title="Tạo nhóm chat"
+                        className="btn btn-sm btn-outline border-base-300 hover:border-primary hover:bg-primary/5 hover:text-primary p-2 flex items-center justify-center rounded-lg transition-all flex-shrink-0"
+                    >
+                        <UserPlus className="size-4" />
+                    </button>
+                </div>
             </div>
             {/* Users List */}
             <div className="overflow-y-auto w-full py-2 flex-1">
@@ -222,11 +283,9 @@ const Sidebar = () => {
                             >
                                 {/* Avatar */}
                                 <div className="relative mx-auto lg:mx-0 flex-shrink-0">
-                                    <img
-                                        src={user.profilePic || "/avatar.png"}
-                                        alt={user.fullName}
-                                        className="size-12 object-cover rounded-full"
-                                    />
+                                    <div className="size-12 flex items-center justify-center">
+                                        <GroupAvatar user={user} size="size-12" />
+                                    </div>
 
                                     {/* Online Status (only if friend) */}
                                     {isFriend && onlineUsers.includes(user._id) && (
@@ -250,9 +309,11 @@ const Sidebar = () => {
                                     <div className="min-w-0 flex-1">
                                         <div className="font-semibold text-sm text-base-content truncate flex items-center gap-1.5">
                                             <span className="truncate">{user.fullName}</span>
-                                            {!isFriend && (
+                                            {user.isGroup ? (
+                                                <span className="bg-purple-100 text-purple-700 text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase flex-shrink-0 animate-fade-in">Nhóm</span>
+                                            ) : !isFriend ? (
                                                 <span className="bg-slate-200 text-slate-700 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase flex-shrink-0">Người lạ</span>
-                                            )}
+                                            ) : null}
                                         </div>
                                         <div className="text-xs text-zinc-400 truncate mt-0.5 max-w-[170px]">
                                             {user.lastMessage ? (
@@ -368,6 +429,199 @@ const Sidebar = () => {
                             ) : (
                                 <p className="text-center text-xs text-base-content/40 py-6 italic">Nhập số điện thoại để tìm kiếm liên hệ mới</p>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Create Group Modal */}
+            {isCreateGroupModalOpen && (
+                <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 animate-fade-in text-base-content backdrop-blur-sm">
+                    <div className="bg-base-100 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col h-[550px] overflow-hidden border border-base-300">
+                        {/* Header */}
+                        <div className="p-4 border-b border-base-300 flex items-center justify-between bg-base-200/50">
+                            <h3 className="font-extrabold text-base flex items-center gap-2 text-primary">
+                                <Users className="size-5 text-primary" /> Tạo nhóm
+                            </h3>
+                            <button 
+                                onClick={() => {
+                                    setIsCreateGroupModalOpen(false);
+                                    setGroupName("");
+                                    setGroupPic("");
+                                    setSelectedFriends([]);
+                                    setGroupSearchQuery("");
+                                }}
+                                className="btn btn-ghost btn-circle btn-sm text-base-content/60"
+                            >
+                                <X className="size-4" />
+                            </button>
+                        </div>
+                        
+                        {/* Modal Body */}
+                        <div className="flex-1 flex overflow-hidden">
+                            {/* Left Side: Friends selection */}
+                            <div className="w-3/5 border-r border-base-300 flex flex-col p-4 bg-base-50/50 overflow-hidden">
+                                {/* Group Info & Pic */}
+                                <div className="flex items-center gap-4 mb-4">
+                                    <div className="relative group">
+                                        <div className="size-14 rounded-full overflow-hidden border-2 border-primary/20 bg-base-200 flex items-center justify-center flex-shrink-0 relative">
+                                            {groupPic ? (
+                                                <img src={groupPic} alt="Group pic" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <Camera className="size-6 text-base-content/40" />
+                                            )}
+                                        </div>
+                                        <label htmlFor="group-pic-upload" className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-all duration-200">
+                                            <Camera className="size-4 text-white" />
+                                            <input 
+                                                type="file" 
+                                                id="group-pic-upload" 
+                                                className="hidden" 
+                                                accept="image/*" 
+                                                onChange={handleGroupPicUpload}
+                                            />
+                                        </label>
+                                    </div>
+                                    <input 
+                                        type="text" 
+                                        value={groupName}
+                                        onChange={(e) => setGroupName(e.target.value)}
+                                        placeholder="Nhập tên nhóm..." 
+                                        className="input input-sm border-base-300 focus:border-primary flex-1 text-sm font-semibold rounded-lg bg-base-100"
+                                        maxLength={40}
+                                    />
+                                </div>
+
+                                {/* Friends Search */}
+                                <div className="relative mb-3">
+                                    <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40" />
+                                    <input 
+                                        type="text" 
+                                        value={groupSearchQuery}
+                                        onChange={(e) => setGroupSearchQuery(e.target.value)}
+                                        placeholder="Nhập tên người bạn cần tìm..." 
+                                        className="input input-sm pl-9 border-base-300 focus:border-primary w-full text-xs rounded-lg bg-base-100"
+                                    />
+                                </div>
+
+                                {/* Friends List */}
+                                <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 select-none">
+                                    <h4 className="text-[11px] font-bold text-base-content/50 uppercase tracking-wider mb-2">Bạn bè kết bạn</h4>
+                                    {users.filter(u => {
+                                        const isFriend = authUser?.friends?.includes(u._id);
+                                        const matchesSearch = u.fullName.toLowerCase().includes(groupSearchQuery.toLowerCase());
+                                        return isFriend && matchesSearch;
+                                    }).length === 0 ? (
+                                        <div className="text-center py-8 text-xs text-base-content/40 italic">
+                                            Không tìm thấy bạn bè phù hợp
+                                        </div>
+                                    ) : (
+                                        users.filter(u => {
+                                            const isFriend = authUser?.friends?.includes(u._id);
+                                            const matchesSearch = u.fullName.toLowerCase().includes(groupSearchQuery.toLowerCase());
+                                            return isFriend && matchesSearch;
+                                        }).map((friend) => {
+                                            const isChecked = selectedFriends.includes(friend._id);
+                                            return (
+                                                <div 
+                                                    key={friend._id}
+                                                    onClick={() => {
+                                                        if (isChecked) {
+                                                            setSelectedFriends(selectedFriends.filter(id => id !== friend._id));
+                                                        } else {
+                                                            setSelectedFriends([...selectedFriends, friend._id]);
+                                                        }
+                                                    }}
+                                                    className="flex items-center gap-3 p-2 hover:bg-base-200 border border-transparent hover:border-base-300 rounded-xl cursor-pointer transition-all"
+                                                >
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={isChecked}
+                                                        onChange={() => {}} // click handler is on parent
+                                                        className="checkbox checkbox-primary checkbox-sm rounded-full flex-shrink-0 pointer-events-none"
+                                                    />
+                                                    <img 
+                                                        src={friend.profilePic || "/avatar.png"} 
+                                                        alt="avatar" 
+                                                        className="size-9 rounded-full object-cover border border-base-300"
+                                                    />
+                                                    <span className="text-xs font-semibold truncate flex-1">{friend.fullName}</span>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Right Side: Selected items */}
+                            <div className="w-2/5 flex flex-col p-4 overflow-hidden bg-base-100">
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="text-xs font-bold text-base-content/75">Đã chọn ({selectedFriends.length})</span>
+                                    {selectedFriends.length > 0 && (
+                                        <button 
+                                            onClick={() => setSelectedFriends([])}
+                                            className="text-[10px] text-primary hover:underline font-bold"
+                                        >
+                                            Xóa tất cả
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                                    {selectedFriends.length === 0 ? (
+                                        <div className="h-full flex flex-col items-center justify-center text-center p-4">
+                                            <p className="text-xs text-base-content/40 italic">Chưa chọn thành viên nào</p>
+                                        </div>
+                                    ) : (
+                                        selectedFriends.map(id => {
+                                            const friend = users.find(u => u._id === id);
+                                            if (!friend) return null;
+                                            return (
+                                                <div 
+                                                    key={id}
+                                                    className="flex items-center gap-2 p-1.5 bg-primary/5 border border-primary/10 rounded-xl"
+                                                >
+                                                    <img 
+                                                        src={friend.profilePic || "/avatar.png"} 
+                                                        alt="avatar" 
+                                                        className="size-7 rounded-full object-cover"
+                                                    />
+                                                    <span className="text-[11px] font-bold truncate flex-1 text-primary">{friend.fullName}</span>
+                                                    <button 
+                                                        onClick={() => setSelectedFriends(selectedFriends.filter(item => item !== id))}
+                                                        className="btn btn-ghost btn-circle btn-xs text-primary hover:bg-primary/10"
+                                                    >
+                                                        <X className="size-3" />
+                                                    </button>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-4 border-t border-base-300 flex justify-end gap-2 bg-base-200/30">
+                            <button 
+                                onClick={() => {
+                                    setIsCreateGroupModalOpen(false);
+                                    setGroupName("");
+                                    setGroupPic("");
+                                    setSelectedFriends([]);
+                                    setGroupSearchQuery("");
+                                }}
+                                className="btn btn-ghost btn-sm text-xs font-semibold px-4"
+                            >
+                                Hủy
+                            </button>
+                            <button 
+                                onClick={handleCreateGroup}
+                                disabled={isCreatingGroup || !groupName.trim() || selectedFriends.length === 0}
+                                className="btn btn-primary btn-sm text-white font-extrabold px-6 shadow-md"
+                            >
+                                {isCreatingGroup ? <Loader2 className="size-4 animate-spin" /> : "Tạo nhóm"}
+                            </button>
                         </div>
                     </div>
                 </div>
