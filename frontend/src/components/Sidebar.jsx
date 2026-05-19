@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { useChatStore } from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
 import SidebarSkeleton from "./skeletons/SidebarSkeleton";
-import { Users, BellOff, Pin, Search, Phone, X, Loader2, UserPlus, Camera, Check } from "lucide-react";
+import { Users, BellOff, Pin, Search, Phone, X, Loader2, UserPlus, Camera, Check, Cloud } from "lucide-react";
 import { axiosInstance } from "../lib/axios";
 import toast from "react-hot-toast";
 import { GroupAvatar } from "./GroupAvatar";
 import { formatCallSystemText } from "../lib/callMessage";
-import { normId } from "../lib/utils";
+import { normId, isConvPinned } from "../lib/utils";
 
 const formatMessageTime = (createdAt) => {
     if (!createdAt) return "";
@@ -193,15 +193,18 @@ const Sidebar = () => {
         return () => clearInterval(interval);
     }, []);
 
-    const filteredUsers = (showOnlineOnly ? users.filter((user) => onlineUsers.includes(user._id)) : users)
+    const filteredUsers = (showOnlineOnly
+        ? users.filter((user) => user.isDocuments || onlineUsers.includes(user._id))
+        : users)
         .filter(user => {
+            if (user.isDocuments) return true;
             if (!authUser) return true;
             return localStorage.getItem(`deleted_chat_${authUser._id}_${user._id}`) !== "true";
         })
         .sort((a, b) => {
             if (!authUser) return 0;
-            const aPinned = localStorage.getItem(`pin_conv_${authUser._id}_${a._id}`) === "true";
-            const bPinned = localStorage.getItem(`pin_conv_${authUser._id}_${b._id}`) === "true";
+            const aPinned = isConvPinned(authUser._id, a);
+            const bPinned = isConvPinned(authUser._id, b);
             if (aPinned && !bPinned) return -1;
             if (!aPinned && bPinned) return 1;
             
@@ -248,6 +251,16 @@ const Sidebar = () => {
                         <span className="truncate lg:hidden block">Tìm</span>
                     </button>
                     <button
+                        onClick={() => {
+                            const docs = users.find((u) => u.isDocuments);
+                            if (docs) setSelectedUser(docs);
+                        }}
+                        title="My document"
+                        className="btn btn-sm btn-outline border-base-300 hover:border-sky-500 hover:bg-sky-500/5 hover:text-sky-600 p-2 flex items-center justify-center rounded-lg transition-all flex-shrink-0"
+                    >
+                        <Cloud className="size-4" />
+                    </button>
+                    <button
                         onClick={() => setIsCreateGroupModalOpen(true)}
                         title="Tạo nhóm chat"
                         className="btn btn-sm btn-outline border-base-300 hover:border-primary hover:bg-primary/5 hover:text-primary p-2 flex items-center justify-center rounded-lg transition-all flex-shrink-0"
@@ -292,10 +305,11 @@ const Sidebar = () => {
                         const userKey = normId(user._id);
                         const unread = unreadCounts[userKey] || 0;
                         const isMuted = authUser && localStorage.getItem(`muted_${normId(authUser._id)}_${userKey}`) === "true";
-                        const isPinned = authUser && localStorage.getItem(`pin_conv_${normId(authUser._id)}_${userKey}`) === "true";
+                        const isPinned = authUser && isConvPinned(authUser._id, user);
                         const isFriend = authUser?.friends?.some(
                             (f) => normId(typeof f === "object" ? f._id : f) === userKey
                         );
+                        const isDocuments = user.isDocuments;
                         return (
                             <button
                                 key={user._id}
@@ -312,8 +326,8 @@ const Sidebar = () => {
                                         <GroupAvatar user={user} size="size-12" />
                                     </div>
 
-                                    {/* Online Status (only if friend) */}
-                                    {isFriend && onlineUsers.includes(user._id) && (
+                                    {/* Online Status (only if friend, not documents) */}
+                                    {isFriend && !isDocuments && onlineUsers.includes(user._id) && (
                                         <span className="absolute bottom-0.5 right-0.5 size-3 bg-green-500 rounded-full z-10 ring-2 ring-white" />
                                     )}
 
@@ -336,13 +350,15 @@ const Sidebar = () => {
                                             <span className="truncate">{user.fullName}</span>
                                             {user.isGroup ? (
                                                 <span className="bg-purple-100 text-purple-700 text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase flex-shrink-0 animate-fade-in">Nhóm</span>
-                                            ) : !isFriend ? (
+                                            ) : !isDocuments && !isFriend ? (
                                                 <span className="bg-slate-200 text-slate-700 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase flex-shrink-0">Người lạ</span>
                                             ) : null}
                                         </div>
                                         <div className="text-xs text-zinc-400 truncate mt-0.5 max-w-[170px]">
                                             {user.lastMessage ? (
                                                 getMessagePreview(user.lastMessage)
+                                            ) : isDocuments ? (
+                                                "Nhắn tin để lưu trữ"
                                             ) : isFriend ? (
                                                 formatLastActive(user.updatedAt, onlineUsers.includes(user._id))
                                             ) : (

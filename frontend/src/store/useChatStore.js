@@ -2,7 +2,7 @@ import { create } from "zustand";
 import toast from "react-hot-toast";
 import { axiosInstance } from "../lib/axios";
 import { useAuthStore } from "./useAuthStore";
-import { formatGroupLastMessagePreview } from "../lib/callMessage";
+import { formatCallSystemText, formatGroupLastMessagePreview } from "../lib/callMessage";
 import { normId } from "../lib/utils";
 
 const loadUnreadCounts = () => {
@@ -21,6 +21,9 @@ const loadUnreadCounts = () => {
 const persistUnreadCounts = (counts) => {
     localStorage.setItem("unread_counts", JSON.stringify(counts));
 };
+
+/** Giữ ref để socket.off() không xóa nhầm listener global */
+let globalNewMessageHandler = null;
 
 export const useChatStore = create((set, get) => ({
     messages: [],
@@ -50,7 +53,7 @@ export const useChatStore = create((set, get) => ({
                 const key = normId(user._id);
                 const local = counts[key] || 0;
                 // Groups: unread is client-side only; DMs: trust server count
-                counts[key] = user.isGroup ? local : (user.unreadCount || 0);
+                counts[key] = user.isDocuments ? 0 : user.isGroup ? local : (user.unreadCount || 0);
             });
             
             set({ users: res.data, unreadCounts: counts });
@@ -92,6 +95,24 @@ export const useChatStore = create((set, get) => ({
 
     sendMessage: async (messageData) => {
         const { selectedUser, messages, replyingTo, users } = get();
+        const authUser = useAuthStore.getState().authUser;
+        if (
+            selectedUser &&
+            !selectedUser.isGroup &&
+            !selectedUser.isDocuments &&
+            authUser
+        ) {
+            const me = normId(authUser._id);
+            const them = normId(selectedUser._id);
+            if (localStorage.getItem(`block_${me}_${them}`) === "true") {
+                toast.error("Bạn đã chặn người này. Bỏ chặn để nhắn tin.");
+                return;
+            }
+            if (localStorage.getItem(`block_${them}_${me}`) === "true") {
+                toast.error("Bạn không thể nhắn tin vì đã bị chặn");
+                return;
+            }
+        }
         try {
             const res = await axiosInstance.post(`/messages/send/${selectedUser._id}`, {
                 ...messageData,
@@ -100,14 +121,15 @@ export const useChatStore = create((set, get) => ({
 
             // Real-time update lastMessage in sidebar list immediately on send
             const updatedUsers = users.map((u) => {
-                if (u._id === selectedUser._id) {
+                if (normId(u._id) === normId(selectedUser._id)) {
                     return { ...u, lastMessage: res.data };
                 }
                 return u;
             });
 
+            const alreadyInThread = messages.some((m) => normId(m._id) === normId(res.data._id));
             set({ 
-                messages: [...messages, res.data],
+                messages: alreadyInThread ? messages : [...messages, res.data],
                 replyingTo: null,
                 users: updatedUsers
             });
@@ -192,34 +214,6 @@ export const useChatStore = create((set, get) => ({
 
         get().unsubscribeFromMessages();
 
-        socket.on("newMessage", (newMessage) => {
-            const senderId = normId(
-                typeof newMessage.senderId === "object" ? newMessage.senderId?._id : newMessage.senderId
-            );
-            const isGroupMsg =
-                newMessage.isGroup ||
-                get().users.some((u) => normId(u._id) === normId(newMessage.receiverId) && u.isGroup);
-
-            const isRelevant = isGroupMsg
-                ? selectedUser.isGroup && normId(newMessage.receiverId) === normId(selectedUser._id)
-                : !selectedUser.isGroup &&
-                  (senderId === normId(selectedUser._id) ||
-                      (senderId === normId(useAuthStore.getState().authUser?._id) &&
-                          normId(newMessage.receiverId) === normId(selectedUser._id)));
-            
-            if (!isRelevant) return;
-
-            set({
-                messages: [...get().messages, newMessage],
-            });
-
-            // Immediately notify recipient we've seen it since we have the chat active
-            const authUser = useAuthStore.getState().authUser;
-            if (authUser) {
-                socket.emit("userOpenedChat", { openerId: authUser._id, recipientId: selectedUser._id });
-            }
-        });
-
         socket.on("recipientOpenedChat", ({ openerId }) => {
             if (selectedUser && openerId === selectedUser._id) {
                 set({
@@ -293,13 +287,11 @@ export const useChatStore = create((set, get) => ({
     unsubscribeFromMessages: () => {
         const socket = useAuthStore.getState().socket;
         if (socket) {
-            socket.off("newMessage");
             socket.off("recipientOpenedChat");
             socket.off("groupMessagesSeen");
             socket.off("messageRecalled");
             socket.off("messagePinned");
             socket.off("messageReacted");
-            socket.off("recipientOpenedChat");
         }
     },
 
@@ -324,8 +316,152 @@ export const useChatStore = create((set, get) => ({
         socket.off("groupUpdated");
         
         socket.off("groupCallParticipantLeft");
-        socket.off("newMessage");
-        
+
+        if (globalNewMessageHandler) {
+            socket.off("newMessage", globalNewMessageHandler);
+        }
+
+        globalNewMessageHandler = (newMessage) => {
+            const authUser = useAuthStore.getState().authUser;
+            const myId = normId(authUser?._id);
+            const senderId = normId(
+                typeof newMessage.senderId === "object" ? newMessage.senderId?._id : newMessage.senderId
+            );
+            const receiverId = normId(newMessage.receiverId);
+            const { selectedUser, users, messages } = get();
+
+            const isDocumentsMsg = Boolean(
+                newMessage.isDocuments ||
+                (senderId === myId && receiverId === myId)
+            );
+            const groupUser = users.find((u) => normId(u._id) === receiverId && u.isGroup);
+            const isGroupMsg = Boolean(newMessage.isGroup || groupUser);
+
+            let updatedLastMessage = newMessage;
+            if (groupUser) {
+                const senderName =
+                    senderId === myId ? "Bạn" : newMessage.senderId?.fullName || "Thành viên";
+                if (newMessage.text) {
+                    updatedLastMessage = {
+                        ...newMessage,
+                        text: formatGroupLastMessagePreview(senderName, newMessage.text),
+                    };
+                } else if (newMessage.image) {
+                    updatedLastMessage = { ...newMessage, text: `${senderName}: [Hình ảnh]` };
+                } else if (newMessage.file && newMessage.file.url) {
+                    updatedLastMessage = {
+                        ...newMessage,
+                        text: `${senderName}: [Tệp đính kèm] ${newMessage.file.name || ""}`,
+                    };
+                }
+            } else if (!isDocumentsMsg && newMessage.text) {
+                const callLabel = formatCallSystemText(newMessage.text);
+                if (callLabel) {
+                    updatedLastMessage = { ...newMessage, text: callLabel };
+                }
+            }
+
+            const chatKey = isDocumentsMsg
+                ? myId
+                : isGroupMsg
+                ? receiverId
+                : senderId === myId
+                ? receiverId
+                : senderId;
+
+            let updatedUsers = users.map((u) => {
+                const uid = normId(u._id);
+                const isMatch = isDocumentsMsg
+                    ? u.isDocuments
+                    : isGroupMsg
+                    ? uid === receiverId
+                    : !u.isDocuments && (uid === senderId || uid === receiverId);
+                if (isMatch) {
+                    return {
+                        ...u,
+                        lastMessage: updatedLastMessage,
+                        updatedAt: newMessage.createdAt || u.updatedAt,
+                    };
+                }
+                return u;
+            });
+
+            updatedUsers.sort((a, b) => {
+                const ta = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
+                const tb = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
+                return tb - ta;
+            });
+
+            const isCallOverlayActive = Boolean(
+                get().activeCall &&
+                (get().activeCall.status === "ringing" ||
+                    get().activeCall.status === "connected" ||
+                    get().activeCall.status === "disconnected")
+            );
+            const viewingChat =
+                selectedUser && normId(selectedUser._id) === chatKey && !isCallOverlayActive;
+
+            let nextCounts = get().unreadCounts;
+            if (!isDocumentsMsg && senderId !== myId && !viewingChat) {
+                nextCounts = { ...get().unreadCounts };
+                nextCounts[chatKey] = (nextCounts[chatKey] || 0) + 1;
+                persistUnreadCounts(nextCounts);
+
+                const isMuted =
+                    authUser &&
+                    localStorage.getItem(`muted_${normId(authUser._id)}_${chatKey}`) === "true";
+                if (!isMuted) {
+                    try {
+                        const audio = new Audio("/notification.mp3");
+                        audio.volume = 0.4;
+                        audio.play().catch(() => {});
+                    } catch {
+                        /* ignore */
+                    }
+                }
+            }
+
+            let nextMessages = messages;
+            if (selectedUser) {
+                const isRelevant = isDocumentsMsg
+                    ? selectedUser.isDocuments
+                    : isGroupMsg
+                    ? selectedUser.isGroup && normId(newMessage.receiverId) === normId(selectedUser._id)
+                    : !selectedUser.isGroup &&
+                      !selectedUser.isDocuments &&
+                      (senderId === normId(selectedUser._id) ||
+                          (senderId === myId &&
+                              normId(newMessage.receiverId) === normId(selectedUser._id)));
+
+                if (isRelevant) {
+                    const exists = messages.some((m) => normId(m._id) === normId(newMessage._id));
+                    if (!exists) {
+                        nextMessages = [...messages, newMessage];
+                        if (authUser && socket) {
+                            socket.emit("userOpenedChat", {
+                                openerId: authUser._id,
+                                recipientId: selectedUser._id,
+                            });
+                        }
+                    }
+                }
+            }
+
+            set({ users: updatedUsers, unreadCounts: nextCounts, messages: nextMessages });
+        };
+
+        socket.on("newMessage", globalNewMessageHandler);
+
+        socket.off("incomingCall");
+        socket.off("callAccepted");
+        socket.off("callRejected");
+        socket.off("callEnded");
+        socket.off("groupCallState");
+        socket.off("groupCallUpdated");
+        socket.off("groupCallEnded");
+        socket.off("groupCallParticipantLeft");
+        socket.off("webrtcSignal");
+
         socket.on("incomingCall", (callData) => {
             if (callData.isGroup && callData.receiverId) {
                 set({
@@ -459,88 +595,6 @@ export const useChatStore = create((set, get) => ({
             }
         });
         
-        socket.on("newMessage", (newMessage) => {
-            const authUser = useAuthStore.getState().authUser;
-            const myId = normId(authUser?._id);
-            const senderId = normId(
-                typeof newMessage.senderId === "object" ? newMessage.senderId?._id : newMessage.senderId
-            );
-            const receiverId = normId(newMessage.receiverId);
-            const { selectedUser, users } = get();
-
-            const groupUser = users.find((u) => normId(u._id) === receiverId && u.isGroup);
-            const isGroupMsg = Boolean(newMessage.isGroup || groupUser);
-
-            let updatedLastMessage = newMessage;
-            if (groupUser) {
-                const senderName =
-                    senderId === myId ? "Bạn" : newMessage.senderId?.fullName || "Thành viên";
-                if (newMessage.text) {
-                    updatedLastMessage = {
-                        ...newMessage,
-                        text: formatGroupLastMessagePreview(senderName, newMessage.text),
-                    };
-                } else if (newMessage.image) {
-                    updatedLastMessage = { ...newMessage, text: `${senderName}: [Hình ảnh]` };
-                } else if (newMessage.file && newMessage.file.url) {
-                    updatedLastMessage = {
-                        ...newMessage,
-                        text: `${senderName}: [Tệp đính kèm] ${newMessage.file.name || ""}`,
-                    };
-                }
-            }
-
-            const chatKey = isGroupMsg ? receiverId : senderId;
-
-            let updatedUsers = users.map((u) => {
-                const uid = normId(u._id);
-                const isMatch = isGroupMsg
-                    ? uid === receiverId
-                    : uid === senderId || uid === receiverId;
-                if (isMatch) {
-                    return {
-                        ...u,
-                        lastMessage: updatedLastMessage,
-                        updatedAt: newMessage.createdAt || u.updatedAt,
-                    };
-                }
-                return u;
-            });
-
-            updatedUsers.sort((a, b) => {
-                const ta = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
-                const tb = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
-                return tb - ta;
-            });
-
-            const isCallOverlayActive = Boolean(
-                get().activeCall && 
-                (get().activeCall.status === "ringing" || get().activeCall.status === "connected" || get().activeCall.status === "disconnected")
-            );
-            const viewingChat = selectedUser && normId(selectedUser._id) === chatKey && !isCallOverlayActive;
-            let nextCounts = get().unreadCounts;
-
-            if (senderId !== myId && !viewingChat) {
-                nextCounts = { ...get().unreadCounts };
-                nextCounts[chatKey] = (nextCounts[chatKey] || 0) + 1;
-                persistUnreadCounts(nextCounts);
-
-                const isMuted =
-                    authUser && localStorage.getItem(`muted_${normId(authUser._id)}_${chatKey}`) === "true";
-                if (!isMuted) {
-                    try {
-                        const audio = new Audio("/notification.mp3");
-                        audio.volume = 0.4;
-                        audio.play().catch(() => {});
-                    } catch {
-                        /* ignore */
-                    }
-                }
-            }
-
-            set({ users: updatedUsers, unreadCounts: nextCounts });
-        });
-
         socket.on("groupCreated", (newGroup) => {
             const { users } = get();
             if (!users.some(u => u._id === newGroup._id)) {
@@ -1059,11 +1113,16 @@ export const useChatStore = create((set, get) => ({
                       res.data.text
                   )
                 : null;
-            const lastMsg = previewText ? { ...res.data, text: previewText } : res.data;
+            let lastMsg = previewText ? { ...res.data, text: previewText } : res.data;
+            const callLabel = formatCallSystemText(res.data.text);
+            if (callLabel && !activeCall.isGroup) {
+                lastMsg = { ...res.data, text: callLabel };
+            }
+            const recvKey = normId(receiverId);
             const updatedUsers = users.map((u) =>
-                u._id === receiverId ? { ...u, lastMessage: lastMsg } : u
+                normId(u._id) === recvKey ? { ...u, lastMessage: lastMsg } : u
             );
-            if (selectedUser && selectedUser._id === receiverId) {
+            if (selectedUser && normId(selectedUser._id) === recvKey) {
                 set({
                     messages: [...get().messages, res.data],
                     users: updatedUsers,
@@ -1098,11 +1157,16 @@ export const useChatStore = create((set, get) => ({
                       res.data.text
                   )
                 : null;
-            const lastMsg = previewText ? { ...res.data, text: previewText } : res.data;
+            let lastMsg = previewText ? { ...res.data, text: previewText } : res.data;
+            const callLabel = formatCallSystemText(res.data.text);
+            if (callLabel && !activeCall.isGroup) {
+                lastMsg = { ...res.data, text: callLabel };
+            }
+            const recvKey = normId(receiverId);
             const updatedUsers = users.map((u) =>
-                u._id === receiverId ? { ...u, lastMessage: lastMsg } : u
+                normId(u._id) === recvKey ? { ...u, lastMessage: lastMsg } : u
             );
-            if (selectedUser && selectedUser._id === receiverId) {
+            if (selectedUser && normId(selectedUser._id) === recvKey) {
                 set({
                     messages: [...get().messages, res.data],
                     users: updatedUsers,

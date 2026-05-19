@@ -1,5 +1,5 @@
 import { X, Search, Info, UserPlus, Loader2, UserMinus, Phone, Video, MessageSquare, LogOut, Pencil, Globe, FileText, Link2, Camera, Target } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
@@ -27,6 +27,8 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
     const { onlineUsers, authUser, unfriend } = useAuthStore();
     
     const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+    const [isUploadingGroupPic, setIsUploadingGroupPic] = useState(false);
+    const groupPicInputRef = useRef(null);
     const [callType, setCallType] = useState("video");
     const [selectedMembers, setSelectedMembers] = useState([]);
     const [memberSearchQuery, setMemberSearchQuery] = useState("");
@@ -39,8 +41,33 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
         return () => clearInterval(interval);
     }, []);
     
+    const handleGroupPicChange = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file || !selectedUser?.isGroup) return;
+        if (!file.type.startsWith("image/")) {
+            toast.error("Vui lòng chọn tệp hình ảnh");
+            return;
+        }
+        setIsUploadingGroupPic(true);
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = async () => {
+            try {
+                await updateGroup(selectedUser._id, { groupPic: reader.result });
+            } finally {
+                setIsUploadingGroupPic(false);
+                if (groupPicInputRef.current) groupPicInputRef.current.value = "";
+            }
+        };
+        reader.onerror = () => {
+            setIsUploadingGroupPic(false);
+            toast.error("Không đọc được ảnh");
+        };
+    };
+
     const isGroup = selectedUser?.isGroup;
-    const isFriend = !isGroup && authUser?.friends?.some(id => (typeof id === "object" ? id._id : id).toString() === selectedUser?._id?.toString());
+    const isDocuments = selectedUser?.isDocuments;
+    const isFriend = !isGroup && !isDocuments && authUser?.friends?.some(id => (typeof id === "object" ? id._id : id).toString() === selectedUser?._id?.toString());
 
     const ongoingGroupCall = isGroup ? groupCalls[selectedUser?._id] : null;
     const isInGroupCall =
@@ -88,7 +115,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                         <div className="size-10 flex items-center justify-center">
                             <GroupAvatar user={selectedUser} size="size-10" />
                         </div>
-                        {!isGroup && isFriend && onlineUsers.includes(selectedUser._id) && (
+                        {!isGroup && !isDocuments && isFriend && onlineUsers.includes(selectedUser._id) && (
                             <span className="absolute bottom-0.5 right-0.5 size-2.5 bg-green-500 rounded-full z-10 ring-2 ring-white"></span>
                         )}
                     </div>
@@ -97,7 +124,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                     <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                             <h3 className="font-semibold text-sm text-base-content truncate">{selectedUser.fullName}</h3>
-                            {!isGroup && !isFriend && (
+                            {!isGroup && !isDocuments && !isFriend && (
                                 <span className="bg-slate-200 text-slate-700 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase flex-shrink-0">Người lạ</span>
                             )}
                             {isGroup && (
@@ -105,7 +132,9 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                             )}
                         </div>
                         <p className="text-xs text-base-content/50 truncate mt-0.5">
-                            {isGroup ? (
+                            {isDocuments ? (
+                                "My document"
+                            ) : isGroup ? (
                                 `${onlineMemberCount} đang hoạt động · ${selectedUser.members?.length || 0} thành viên`
                             ) : isFriend ? (
                                 formatLastActive(selectedUser.updatedAt, onlineUsers.includes(selectedUser._id))
@@ -129,7 +158,8 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                         </button>
                     )}
 
-                    {/* Audio Call button */}
+                    {/* Audio Call button (hidden for My Documents) */}
+                    {!isDocuments && (
                     <button 
                         onClick={() => {
                             if (isGroup) {
@@ -146,8 +176,10 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                     >
                         <Phone className="size-4" />
                     </button>
+                    )}
 
-                    {/* Video Call button */}
+                    {/* Video Call button (hidden for My Documents) */}
+                    {!isDocuments && (
                     <button 
                         onClick={() => {
                             if (isGroup) {
@@ -164,6 +196,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                     >
                         <Video className="size-4" />
                     </button>
+                    )}
 
                     {/* Search button */}
                     <button 
@@ -203,7 +236,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                         {/* Title Header */}
                         <div className="p-4 flex items-center justify-between sticky top-0 bg-white z-10">
                             <h3 className="font-bold text-[17px] text-slate-800">
-                                {isGroup ? "Thông tin nhóm" : "Thông tin tài khoản"}
+                                {isDocuments ? "My document" : isGroup ? "Thông tin nhóm" : "Thông tin tài khoản"}
                             </h3>
                             <button 
                                 onClick={() => setIsInfoModalOpen(false)}
@@ -223,9 +256,28 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                                             <GroupAvatar user={selectedUser} size="size-16" />
                                         </div>
                                         {isGroup && (
-                                            <button className="absolute bottom-0 right-0 size-6 bg-white rounded-full flex items-center justify-center border border-slate-200 shadow hover:bg-slate-50">
-                                                <Camera className="size-3.5 text-slate-600" />
-                                            </button>
+                                            <>
+                                                <input
+                                                    ref={groupPicInputRef}
+                                                    type="file"
+                                                    accept="image/*"
+                                                    className="hidden"
+                                                    onChange={handleGroupPicChange}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    disabled={isUploadingGroupPic}
+                                                    onClick={() => groupPicInputRef.current?.click()}
+                                                    className="absolute bottom-0 right-0 size-6 bg-white rounded-full flex items-center justify-center border border-slate-200 shadow hover:bg-slate-50 disabled:opacity-60"
+                                                    title="Đổi ảnh nhóm"
+                                                >
+                                                    {isUploadingGroupPic ? (
+                                                        <Loader2 className="size-3.5 text-slate-600 animate-spin" />
+                                                    ) : (
+                                                        <Camera className="size-3.5 text-slate-600" />
+                                                    )}
+                                                </button>
+                                            </>
                                         )}
                                     </div>
                                     <div className="flex items-center gap-1.5 flex-1 min-w-0">
@@ -248,7 +300,18 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                                     </div>
                                 </div>
                                 <div className="mt-4">
-                                    {isGroup ? (
+                                    {isDocuments ? (
+                                        <button 
+                                            onClick={() => {
+                                                setIsInfoModalOpen(false);
+                                                const editor = document.querySelector('[contenteditable="true"]');
+                                                if (editor) editor.focus();
+                                            }}
+                                            className="w-full btn bg-slate-200 text-slate-800 hover:bg-slate-300 border-none rounded-lg font-semibold text-[15px] h-10 min-h-10"
+                                        >
+                                            Nhắn tin
+                                        </button>
+                                    ) : isGroup ? (
                                         <button 
                                             onClick={() => {
                                                 setIsInfoModalOpen(false);
@@ -287,7 +350,13 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                             </div>
 
                             {/* Group details or Personal details */}
-                            {isGroup ? (
+                            {isDocuments ? (
+                                <div className="border-t-[8px] border-slate-100 p-4">
+                                    <p className="text-sm text-slate-600 leading-relaxed">
+                                        My document — lưu văn bản, ảnh, link và tệp cá nhân. Chỉ bạn xem được.
+                                    </p>
+                                </div>
+                            ) : isGroup ? (
                                 <>
                                     {/* Members section */}
                                     <div className="border-t-[8px] border-slate-100 p-4">
@@ -564,8 +633,8 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                                 </div>
                             )}
 
-                            {/* Unfriend (Personal only) */}
-                            {!isGroup && isFriend && (
+                            {/* Unfriend (Personal only, not My Documents) */}
+                            {!isGroup && !isDocuments && isFriend && (
                                 <div className="border-t-[8px] border-slate-100 p-4">
                                     <button 
                                         onClick={async () => {

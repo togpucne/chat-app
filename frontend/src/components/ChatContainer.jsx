@@ -6,7 +6,7 @@ import MessagesSkeleton from "./skeletons/MessagesSkeleton";
 import toast from "react-hot-toast";
 import { useAuthStore } from "../store/useAuthStore";
 import { GroupAvatar } from "./GroupAvatar";
-import { formatMessageTime } from "../lib/utils";
+import { formatMessageTime, isConvPinned, setConvPinned } from "../lib/utils";
 import { MoreVertical, Pin, X, Paperclip, RotateCcw, RotateCw, Download, Search, Trash2, Ban, Bell, BellOff, Link2, FileText, Image, Globe, Check, Calendar, ChevronDown, Reply, Copy, Share2, RefreshCw, Target, CheckSquare, UserPlus, LogOut, UserMinus, Loader2, Users, Pencil, Camera, Video, Phone, VideoOff, PhoneOff } from "lucide-react";
 import { formatCallDurationVi, parseCallCompleted } from "../lib/callMessage";
 
@@ -129,7 +129,7 @@ const renderFormattedText = (text, searchQuery = "") => {
 
 const ChatContainer = () => {
     const { messages, getMessages, isMessagesLoading, selectedUser, subscribeToMessages, unsubscribeFromMessages, deleteMessage, setReplyingTo, pinMessage, reactMessage, clearMessages, users, forwardMessages, removeGroupMember, leaveGroup, addGroupMembers, updateGroup, initiateCall } = useChatStore();
-    const { authUser, onlineUsers, sendFriendRequest, acceptFriendRequest, rejectFriendRequest } = useAuthStore();
+    const { authUser, onlineUsers, sendFriendRequest, acceptFriendRequest, rejectFriendRequest, unfriend } = useAuthStore();
     const messageEndRef = useRef(null);
     const fileInputRef = useRef(null);
 
@@ -225,7 +225,7 @@ const ChatContainer = () => {
     };
 
     const friendsNotInGroup = users.filter((u) => {
-        if (!u || u.isGroup) return false;
+        if (!u || u.isGroup || u.isDocuments) return false;
         
         const isUserFriend = authUser?.friends?.some(
             (fId) => (fId?._id || fId)?.toString() === u._id?.toString()
@@ -251,7 +251,7 @@ const ChatContainer = () => {
             setIsIBlockedHim(localStorage.getItem(`block_${authUser._id}_${selectedUser._id}`) === "true");
             setIsHeBlockedMe(localStorage.getItem(`block_${selectedUser._id}_${authUser._id}`) === "true");
             setIsMuted(localStorage.getItem(`muted_${authUser._id}_${selectedUser._id}`) === "true");
-            setIsPinnedConv(localStorage.getItem(`pin_conv_${authUser._id}_${selectedUser._id}`) === "true");
+            setIsPinnedConv(isConvPinned(authUser._id, selectedUser));
             
             // Reset typing state immediately upon changing conversation
             setIsRecipientTyping(false);
@@ -613,7 +613,9 @@ const ChatContainer = () => {
     const pinnedMessages = messages.filter((m) => m.isPinned && !m.isRecalled);
     const latestPinned = pinnedMessages[pinnedMessages.length - 1];
 
-    const isFriend = authUser?.friends?.includes(selectedUser?._id);
+    const isFriend = authUser?.friends?.some(
+        (id) => (typeof id === "object" ? id._id : id)?.toString() === selectedUser?._id?.toString()
+    );
     const hasSentRequest = authUser?.sentRequests?.includes(selectedUser?._id);
     const hasReceivedRequest = authUser?.friendRequests?.includes(selectedUser?._id);
 
@@ -636,7 +638,7 @@ const ChatContainer = () => {
                 />
 
                 {/* Stranger Banner for Friend Requests */}
-                {!selectedUser.isGroup && !isFriend && selectedUser && (
+                {!selectedUser.isGroup && !selectedUser.isDocuments && !isFriend && selectedUser && (
                     <div className="bg-amber-50/95 backdrop-blur border-b border-amber-200 p-3 flex items-center justify-between text-xs shadow-sm z-20 select-none animate-fade-in">
                         <div className="flex items-center gap-2 font-medium text-amber-900 min-w-0">
                             <UserPlus className="size-4 text-amber-700 flex-shrink-0" />
@@ -1338,7 +1340,7 @@ const ChatContainer = () => {
                             <div className="size-16 flex items-center justify-center">
                                 <GroupAvatar user={selectedUser} size="size-16" />
                             </div>
-                            {!selectedUser.isGroup && onlineUsers.includes(selectedUser._id) && (
+                            {!selectedUser.isGroup && !selectedUser.isDocuments && onlineUsers.includes(selectedUser._id) && (
                                 <span className="absolute bottom-0.5 right-0.5 size-3 bg-green-500 rounded-full z-10 ring-2 ring-white"></span>
                             )}
                             {selectedUser.isGroup && (
@@ -1408,15 +1410,18 @@ const ChatContainer = () => {
                             </h4>
                         )}
                         <p className="text-xs text-base-content/50 mt-0.5">
-                            {selectedUser.isGroup 
+                            {selectedUser.isDocuments
+                                ? "My document"
+                                : selectedUser.isGroup 
                                 ? `Nhóm • ${selectedUser.members?.length || 0} thành viên`
                                 : (onlineUsers.includes(selectedUser._id) ? "Đang hoạt động" : "Ngoại tuyến")
                             }
                         </p>
  
                         {/* Action buttons (Mute, Pin, Add Member, Leave Group) */}
-                        <div className={`grid ${selectedUser.isGroup ? "grid-cols-4" : "grid-cols-3"} gap-2 w-full mt-5`}>
-                            {/* Mute action */}
+                        <div className={`grid ${selectedUser.isDocuments ? "grid-cols-1" : selectedUser.isGroup ? "grid-cols-4" : "grid-cols-3"} gap-2 w-full mt-5`}>
+                            {/* Mute action (not for My document) */}
+                            {!selectedUser.isDocuments && (
                             <button 
                                 onClick={() => {
                                     if (selectedUser && authUser) {
@@ -1439,17 +1444,14 @@ const ChatContainer = () => {
                                 {isMuted ? <BellOff className="size-4" /> : <Bell className="size-4" />}
                                 <span className="text-[10px] font-semibold leading-none">{isMuted ? "Bật thông báo" : "Tắt thông báo"}</span>
                             </button>
+                            )}
  
                             {/* Pin action */}
                             <button 
                                 onClick={() => {
                                     if (selectedUser && authUser) {
                                         const nextPinned = !isPinnedConv;
-                                        if (nextPinned) {
-                                            localStorage.setItem(`pin_conv_${authUser._id}_${selectedUser._id}`, "true");
-                                        } else {
-                                            localStorage.removeItem(`pin_conv_${authUser._id}_${selectedUser._id}`);
-                                        }
+                                        setConvPinned(authUser._id, selectedUser, nextPinned);
                                         setIsPinnedConv(nextPinned);
                                         window.dispatchEvent(new Event("pinnedConversationsChanged"));
                                     }
@@ -1501,7 +1503,7 @@ const ChatContainer = () => {
                                     <LogOut className="size-4" />
                                     <span className="text-[10px] font-semibold leading-none">Rời nhóm</span>
                                 </button>
-                            ) : (
+                            ) : !selectedUser.isDocuments ? (
                                 <button 
                                     onClick={handleToggleBlock}
                                     className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs gap-1.5 transition-colors ${
@@ -1513,7 +1515,7 @@ const ChatContainer = () => {
                                     <Ban className="size-4" />
                                     <span className="text-[10px] font-semibold leading-none">{isIBlockedHim ? "Bỏ chặn" : "Chặn"}</span>
                                 </button>
-                            )}
+                            ) : null}
                         </div>
                     </div>
  
@@ -1839,9 +1841,10 @@ const ChatContainer = () => {
                                 <span>Rời khỏi nhóm</span>
                             </button>
                         )}
+                        {!selectedUser.isDocuments && !selectedUser.isGroup && (
                         <button 
                             onClick={() => {
-                                if (window.confirm("Bạn có chắc chắn muốn xóa cuộc trò chuyện này? Hành động này sẽ xóa toàn bộ tin nhắn và ẩn cuộc trò chuyện khỏi danh sách.")) {
+                                if (window.confirm("Bạn có chắc chắn muốn xóa cuộc trò chuyện này? Tin nhắn sẽ ẩn khỏi danh sách nhưng vẫn giữ quan hệ bạn bè.")) {
                                     clearMessages();
                                     localStorage.setItem(`deleted_chat_${authUser._id}_${selectedUser._id}`, "true");
                                     setSelectedUser(null);
@@ -1852,6 +1855,21 @@ const ChatContainer = () => {
                             <Trash2 className="size-4" />
                             <span>Xóa cuộc trò chuyện</span>
                         </button>
+                        )}
+                        {!selectedUser.isDocuments && !selectedUser.isGroup && isFriend && (
+                        <button 
+                            onClick={async () => {
+                                if (window.confirm(`Hủy kết bạn với ${selectedUser.fullName}? Người này sẽ biến mất khỏi danh sách bạn bè.`)) {
+                                    await unfriend(selectedUser._id);
+                                    setSelectedUser(null);
+                                }
+                            }}
+                            className="btn btn-error btn-sm w-full gap-2 text-xs flex items-center justify-center font-bold"
+                        >
+                            <UserMinus className="size-4" />
+                            <span>Xóa bạn</span>
+                        </button>
+                        )}
                     </div>
                 </div>
             )}

@@ -28,6 +28,7 @@ const MessageInput = () => {
 
     const { sendMessage, replyingTo, setReplyingTo, selectedUser } = useChatStore();
     const { authUser } = useAuthStore();
+    const isDocuments = selectedUser?.isDocuments;
 
     const emojis = ["😀", "😂", "🤣", "❤️", "👍", "😍", "😘", "😭", "🙏", "🎉", "🔥", "🙌", "👏", "💩", "😎", "🤩", "😮", "😡"];
 
@@ -49,6 +50,7 @@ const MessageInput = () => {
     }, [selectedUser]);
 
     const handleTyping = () => {
+        if (isDocuments) return;
         const socket = useAuthStore.getState().socket;
         const authUser = useAuthStore.getState().authUser;
         if (!socket || !selectedUser) return;
@@ -466,7 +468,7 @@ const MessageInput = () => {
                             handleTyping();
                         }}
                         className="w-full min-h-[40px] max-h-[120px] overflow-y-auto input input-bordered rounded-lg p-2.5 text-sm sm:text-base outline-none whitespace-pre-wrap text-left break-words pr-10"
-                        placeholder={`Nhập tin nhắn tới ${selectedUser.fullName}...`}
+                        placeholder={isDocuments ? "Nhập tin nhắn tới My document..." : `Nhập tin nhắn tới ${selectedUser.fullName}...`}
                         onKeyDown={(e) => {
                             if (e.key === "Enter" && !e.shiftKey) {
                                 e.preventDefault();

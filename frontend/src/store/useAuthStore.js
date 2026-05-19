@@ -30,6 +30,7 @@ export const useAuthStore = create((set, get) => ({
         try {
             const res = await axiosInstance.post("/auth/signup", data);
             set({ authUser: res.data });
+            get().connectSocket();
             toast.success("Tạo tài khoản thành công");
         } catch (error) {
             toast.error(error.response.data.message);
@@ -78,22 +79,33 @@ export const useAuthStore = create((set, get) => ({
     },
     connectSocket: () => {
         const { authUser } = get();
-        if (!authUser || get().socket?.connected) return;
+        if (!authUser) return;
+
+        const existing = get().socket;
+        if (existing?.connected) return;
+
+        if (existing) {
+            existing.removeAllListeners();
+            existing.disconnect();
+        }
+
         const socket = io(BASE_URL, {
-            query: {
-                userId: authUser._id
-            }
+            query: { userId: String(authUser._id) },
+            transports: ["websocket", "polling"],
         });
 
+        set({ socket });
 
-        socket.connect();
+        const bindChatListeners = () => {
+            import("./useChatStore")
+                .then(({ useChatStore }) => {
+                    useChatStore.getState().initializeSocketListener?.(socket);
+                })
+                .catch((err) => console.error(err));
+        };
 
-        set({ socket: socket });
-
-        // Lazy load useChatStore dynamically to prevent circular dependencies
-        import("./useChatStore").then(({ useChatStore }) => {
-            useChatStore.getState().initializeSocketListener?.(socket);
-        }).catch(err => console.error(err));
+        socket.on("connect", bindChatListeners);
+        if (socket.connected) bindChatListeners();
 
         socket.on("getOnlineUsers", (userIds) => {
             set({ onlineUsers: userIds });
@@ -150,7 +162,12 @@ export const useAuthStore = create((set, get) => ({
         });
     },
     disconnectSocket: () => {
-        if (get().socket?.connected) get().socket.disconnect();
+        const socket = get().socket;
+        if (socket) {
+            socket.removeAllListeners();
+            socket.disconnect();
+        }
+        set({ socket: null, onlineUsers: [] });
     },
 
     sendFriendRequest: async (targetId) => {

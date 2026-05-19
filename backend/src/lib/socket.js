@@ -15,7 +15,8 @@ const io = new Server(server, {
     },
 });
 export function getReceiverSocketId(userId) {
-    return userSocketMap[userId];
+    if (userId == null) return undefined;
+    return userSocketMap[String(userId)];
 }
 // used to use online users
 const userSocketMap = {};
@@ -60,7 +61,9 @@ function broadcastRoom(groupId, excludeUserId = null) {
 
 io.on("connection", (socket) => {
     console.log("A user connected", socket.id);
-    const userId = socket.handshake.query.userId;
+    const userId = socket.handshake.query.userId
+        ? String(socket.handshake.query.userId)
+        : null;
     if (userId) {
         userSocketMap[userId] = socket.id;
     }
@@ -91,7 +94,7 @@ io.on("connection", (socket) => {
                 console.error("Lỗi cập nhật đã xem nhóm:", err);
             }
         }
-        const recipientSocketId = userSocketMap[recipientId];
+        const recipientSocketId = getReceiverSocketId(recipientId);
         if (recipientSocketId) {
             io.to(recipientSocketId).emit("recipientOpenedChat", { openerId });
         }
@@ -104,7 +107,7 @@ io.on("connection", (socket) => {
     });
 
     socket.on("userBlockedRecipient", ({ blockerId, blockedId, isBlocked }) => {
-        const recipientSocketId = userSocketMap[blockedId];
+        const recipientSocketId = getReceiverSocketId(blockedId);
         if (recipientSocketId) {
             io.to(recipientSocketId).emit("blockStateChanged", { blockerId, isBlocked });
         }
@@ -130,7 +133,7 @@ io.on("connection", (socket) => {
                 });
             }
         } else {
-            const recipientSocketId = userSocketMap[recipientId];
+            const recipientSocketId = getReceiverSocketId(recipientId);
             if (recipientSocketId) {
                 io.to(recipientSocketId).emit("typingStateChanged", { 
                     senderId: userId, 
@@ -145,7 +148,7 @@ io.on("connection", (socket) => {
     // --- 1:1 calling ---
     socket.on("callUser", ({ callerId, receiverId, type, isGroup, callerName, callerAvatar, invitedUsers, receiverName, receiverAvatar }) => {
         if (isGroup) return; // group calls use startGroupCall
-        const receiverSocketId = userSocketMap[receiverId];
+        const receiverSocketId = getReceiverSocketId(receiverId);
         if (receiverSocketId) {
             io.to(receiverSocketId).emit("incomingCall", {
                 callerId,
@@ -161,7 +164,7 @@ io.on("connection", (socket) => {
     });
 
     socket.on("webrtcSignal", ({ targetId, signal, groupId }) => {
-        const targetSocketId = userSocketMap[targetId];
+        const targetSocketId = getReceiverSocketId(targetId);
         if (targetSocketId) {
             io.to(targetSocketId).emit("webrtcSignal", { senderId: userId, signal, groupId });
         }
@@ -169,7 +172,7 @@ io.on("connection", (socket) => {
 
     socket.on("answerCall", ({ callerId, isGroup }) => {
         if (isGroup) return;
-        const callerSocketId = userSocketMap[callerId];
+        const callerSocketId = getReceiverSocketId(callerId);
         if (callerSocketId) {
             io.to(callerSocketId).emit("callAccepted");
         }
@@ -177,7 +180,7 @@ io.on("connection", (socket) => {
 
     socket.on("rejectCall", ({ callerId, isGroup }) => {
         if (isGroup) return;
-        const callerSocketId = userSocketMap[callerId];
+        const callerSocketId = getReceiverSocketId(callerId);
         if (callerSocketId) {
             io.to(callerSocketId).emit("callRejected");
         }
@@ -185,7 +188,7 @@ io.on("connection", (socket) => {
 
     socket.on("endCall", ({ targetId, isGroup }) => {
         if (isGroup) return;
-        const targetSocketId = userSocketMap[targetId];
+        const targetSocketId = getReceiverSocketId(targetId);
         if (targetSocketId) {
             io.to(targetSocketId).emit("callEnded");
         }

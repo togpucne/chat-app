@@ -1,7 +1,18 @@
 import React from "react";
+import { Cloud } from "lucide-react";
 
 export const GroupAvatar = ({ user, size = "size-12" }) => {
     if (!user) return null;
+
+    if (user.isDocuments) {
+        return (
+            <div
+                className={`${size} rounded-full bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center shadow-sm`}
+            >
+                <Cloud className="size-[58%] text-white fill-white/90" strokeWidth={2} />
+            </div>
+        );
+    }
 
     if (!user.isGroup) {
         return (

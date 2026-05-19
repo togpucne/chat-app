@@ -100,7 +100,23 @@ export const getUsersForSidebar = async (req, res) => {
       })
     );
 
-    return res.status(200).json([...usersWithMetadata, ...groupsWithMetadata]);
+    const lastDocMsg = await Message.findOne({
+      senderId: loggedInUserId,
+      receiverId: loggedInUserId,
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const documentsEntry = {
+      _id: loggedInUserId,
+      fullName: "My document",
+      profilePic: "",
+      isDocuments: true,
+      lastMessage: lastDocMsg || null,
+      unreadCount: 0,
+    };
+
+    return res.status(200).json([documentsEntry, ...usersWithMetadata, ...groupsWithMetadata]);
   } catch (error) {
     console.log("Lỗi lấy danh sách người dùng " + error.message);
     return res.status(500).json({ message: "Lỗi hệ thống" });
@@ -255,6 +271,25 @@ export const getMessages = async (req, res) => {
     const { id: userToChatId } = req.params;
     const myId = req.user._id;
 
+    // My Documents — personal storage (self chat)
+    if (userToChatId.toString() === myId.toString()) {
+      const messages = await Message.find({
+        senderId: myId,
+        receiverId: myId,
+        deletedBy: { $ne: myId },
+      })
+        .populate("senderId", "fullName profilePic")
+        .populate({
+          path: "replyTo",
+          select: "text image senderId isRecalled",
+          populate: {
+            path: "senderId",
+            select: "fullName",
+          },
+        });
+      return res.status(200).json(messages);
+    }
+
     // Check if userToChatId is a Group
     const group = await Group.findById(userToChatId);
 
@@ -383,6 +418,41 @@ export const sendMessage = async (req, res) => {
       return res.status(201).json(populatedMessage);
     }
 
+    // My Documents — save to personal storage (self chat)
+    if (receiverId.toString() === senderId.toString()) {
+      const newMessage = new Message({
+        senderId,
+        receiverId,
+        text,
+        image: imageUrl,
+        replyTo: replyTo || null,
+        file: file || null,
+        isSeen: true,
+      });
+
+      await newMessage.save();
+
+      const populatedMessage = await Message.findById(newMessage._id)
+        .populate("senderId", "fullName profilePic")
+        .populate({
+          path: "replyTo",
+          select: "text image senderId isRecalled",
+          populate: {
+            path: "senderId",
+            select: "fullName",
+          },
+        });
+
+      const mySocketId = getReceiverSocketId(senderId.toString());
+      if (mySocketId) {
+        const messageObject = populatedMessage.toObject();
+        messageObject.isDocuments = true;
+        io.to(mySocketId).emit("newMessage", messageObject);
+      }
+
+      return res.status(201).json(populatedMessage);
+    }
+
     // Normal private message
     const isSeen = activeChats[receiverId]?.toString() === senderId.toString();
 
@@ -410,9 +480,14 @@ export const sendMessage = async (req, res) => {
         }
       });
 
-    const receiverSocketId = getReceiverSocketId(receiverId);
+    const receiverSocketId = getReceiverSocketId(receiverId.toString());
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("newMessage", populatedMessage);
+    }
+
+    const senderSocketId = getReceiverSocketId(senderId.toString());
+    if (senderSocketId && senderSocketId !== receiverSocketId) {
+      io.to(senderSocketId).emit("newMessage", populatedMessage);
     }
 
     res.status(201).json(populatedMessage);
@@ -448,6 +523,13 @@ export const deleteOrRecallMessage = async (req, res) => {
       const receiverSocketId = getReceiverSocketId(receiverId);
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("messageRecalled", { messageId });
+      }
+      // My Documents: also notify sender's other tabs/devices
+      if (message.senderId.toString() === receiverId) {
+        const senderSocketId = getReceiverSocketId(message.senderId.toString());
+        if (senderSocketId && senderSocketId !== receiverSocketId) {
+          io.to(senderSocketId).emit("messageRecalled", { messageId });
+        }
       }
 
       return res.status(200).json(message);
