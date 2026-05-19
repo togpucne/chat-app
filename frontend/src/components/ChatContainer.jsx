@@ -1023,28 +1023,19 @@ const ChatContainer = () => {
                     </div>
                 ))}
 
-                {isRecipientTyping && (
-                    <div className="chat chat-start group relative transition-colors duration-500 rounded-xl p-1 animate-fade-in select-none">
-                        <div className="chat-image avatar">
-                            <div className="size-8 rounded-full border">
-                                <img
-                                    src={selectedUser.profilePic || "/avatar.png"}
-                                    alt="Ảnh đại diện"
-                                />
-                            </div>
-                        </div>
-                        <div className="chat-bubble bg-[#f0f2f5] border border-slate-200/80 text-[#1c1e21] rounded-tl-none py-1 px-2.5 rounded-xl shadow-none max-w-[42px] min-h-[26px] flex items-center justify-center before:hidden after:hidden">
-                            <div className="flex gap-0.5 items-center justify-center">
-                                <span className="size-1 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: "0ms", animationDuration: "1000ms" }}></span>
-                                <span className="size-1 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: "150ms", animationDuration: "1000ms" }}></span>
-                                <span className="size-1 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: "300ms", animationDuration: "1000ms" }}></span>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
                 <div ref={messageEndRef} />
             </div>
+
+            {isRecipientTyping && (
+                <div className="px-4 py-2 text-xs text-base-content/50 flex items-center gap-1.5 animate-fade-in select-none bg-base-100">
+                    <span className="font-semibold text-primary">{selectedUser.fullName}</span> đang soạn tin...
+                    <span className="flex gap-0.5 items-center justify-center ml-0.5">
+                        <span className="size-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "0ms", animationDuration: "1000ms" }}></span>
+                        <span className="size-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "150ms", animationDuration: "1000ms" }}></span>
+                        <span className="size-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "300ms", animationDuration: "1000ms" }}></span>
+                    </span>
+                </div>
+            )}
 
             {/* Block Action Banner, Message Input, or Selection Bar */}
             {isSelectionMode ? (

@@ -160,13 +160,11 @@ export const useChatStore = create((set, get) => ({
 
         const socket = useAuthStore.getState().socket;
         if (!socket) return;
-
         socket.on("newMessage", (newMessage) => {
-            // If the current chat is a group, match receiverId with the group ID
-            // Otherwise, match senderId with the user ID
+            const senderId = typeof newMessage.senderId === "object" ? newMessage.senderId?._id : newMessage.senderId;
             const isRelevant = selectedUser.isGroup
                 ? newMessage.receiverId === selectedUser._id
-                : newMessage.senderId === selectedUser._id;
+                : senderId === selectedUser._id;
             
             if (!isRelevant) return;
 
