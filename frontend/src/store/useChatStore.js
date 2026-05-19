@@ -198,6 +198,37 @@ export const useChatStore = create((set, get) => ({
             }
         });
 
+        socket.on("groupMessagesSeen", ({ groupId, userId }) => {
+            const { selectedUser, messages } = get();
+            if (selectedUser && selectedUser.isGroup && selectedUser._id === groupId) {
+                const userObj = selectedUser.members?.find((m) => {
+                    const mId = typeof m === "object" ? m._id : m;
+                    return mId?.toString() === userId.toString();
+                });
+                
+                if (userObj) {
+                    const updatedMessages = messages.map((msg) => {
+                        const senderId = typeof msg.senderId === "object" ? msg.senderId?._id : msg.senderId;
+                        if (senderId?.toString() === userId.toString()) return msg;
+                        
+                        const alreadySeen = msg.seenBy?.some((u) => {
+                            const uId = typeof u === "object" ? u._id : u;
+                            return uId?.toString() === userId.toString();
+                        });
+                        
+                        if (!alreadySeen) {
+                            return {
+                                ...msg,
+                                seenBy: [...(msg.seenBy || []), userObj],
+                            };
+                        }
+                        return msg;
+                    });
+                    set({ messages: updatedMessages });
+                }
+            }
+        });
+
         socket.on("messageRecalled", ({ messageId }) => {
             set({
                 messages: get().messages.map((msg) =>
@@ -227,6 +258,8 @@ export const useChatStore = create((set, get) => ({
         const socket = useAuthStore.getState().socket;
         if (socket) {
             socket.off("newMessage");
+            socket.off("recipientOpenedChat");
+            socket.off("groupMessagesSeen");
             socket.off("messageRecalled");
             socket.off("messagePinned");
             socket.off("messageReacted");

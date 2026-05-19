@@ -204,6 +204,14 @@ export const rejectFriendRequest = async (req, res) => {
 
     await me.save();
 
+    const requesterSocketId = getReceiverSocketId(requesterId.toString());
+    if (requesterSocketId) {
+      io.to(requesterSocketId).emit("friendRequestRejected", {
+        userId: myId.toString(),
+        fullName: me.fullName
+      });
+    }
+
     return res.status(200).json({ success: true, friendRequests: me.friendRequests });
   } catch (error) {
     console.log("Lỗi từ chối kết bạn: " + error.message);
@@ -221,12 +229,28 @@ export const getMessages = async (req, res) => {
     const group = await Group.findById(userToChatId);
 
     if (group) {
-      // Group chat
+      // Add myId to seenBy of all group messages that don't contain it
+      await Message.updateMany(
+        { receiverId: userToChatId, seenBy: { $ne: myId } },
+        { $addToSet: { seenBy: myId } }
+      );
+
+      // Broadcast to other members of the group
+      group.members.forEach((memberId) => {
+        if (memberId.toString() !== myId.toString()) {
+          const memberSocketId = getReceiverSocketId(memberId.toString());
+          if (memberSocketId) {
+            io.to(memberSocketId).emit("groupMessagesSeen", { groupId: userToChatId, userId: myId });
+          }
+        }
+      });
+
       const messages = await Message.find({
         receiverId: userToChatId,
         deletedBy: { $ne: myId }
       })
       .populate("senderId", "fullName profilePic")
+      .populate("seenBy", "fullName profilePic")
       .populate({
         path: "replyTo",
         select: "text image senderId isRecalled",

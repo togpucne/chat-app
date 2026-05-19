@@ -3,6 +3,7 @@ import http from "http";
 import express from "express";
 import User from "../models/user.model.js";
 import Group from "../models/group.model.js";
+import Message from "../models/message.model.js";
 
 
 const app = express();
@@ -30,9 +31,29 @@ io.on("connection", (socket) => {
 
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
-    socket.on("userOpenedChat", ({ openerId, recipientId }) => {
+    socket.on("userOpenedChat", async ({ openerId, recipientId }) => {
         if (openerId) {
             activeChats[openerId] = recipientId;
+            try {
+                const group = await Group.findById(recipientId);
+                if (group) {
+                    await Message.updateMany(
+                        { receiverId: recipientId, seenBy: { $ne: openerId } },
+                        { $addToSet: { seenBy: openerId } }
+                    );
+
+                    group.members.forEach((memberId) => {
+                        if (memberId.toString() !== openerId.toString()) {
+                            const memberSocketId = userSocketMap[memberId.toString()];
+                            if (memberSocketId) {
+                                io.to(memberSocketId).emit("groupMessagesSeen", { groupId: recipientId, userId: openerId });
+                            }
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error("Lỗi cập nhật đã xem nhóm:", err);
+            }
         }
         const recipientSocketId = userSocketMap[recipientId];
         if (recipientSocketId) {

@@ -125,6 +125,16 @@ export const useAuthStore = create((set, get) => ({
                 useChatStore.getState().getUsers();
             });
         });
+
+        socket.on("friendRequestRejected", ({ userId, fullName }) => {
+            set(state => ({
+                authUser: state.authUser ? {
+                    ...state.authUser,
+                    sentRequests: (state.authUser.sentRequests || []).filter(id => id !== userId)
+                } : null
+            }));
+            toast.error(`${fullName} đã từ chối lời mời kết bạn.`, { icon: "❌" });
+        });
     },
     disconnectSocket: () => {
         if (get().socket?.connected) get().socket.disconnect();

@@ -56,6 +56,12 @@ const messageSchema = new mongoose.Schema(
                     type: String,
                 }
             }
+        ],
+        seenBy: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "User",
+            }
         ]
     },
     {

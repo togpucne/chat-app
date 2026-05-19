@@ -676,8 +676,32 @@ const ChatContainer = () => {
             )}
 
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                {Object.entries(groupedMessages).map(([dateLabel, msgs]) => (
-                    <div key={dateLabel} className="space-y-4 relative">
+                {(() => {
+                    const memberLastSeenMap = {};
+                    if (selectedUser.isGroup && selectedUser.members) {
+                        selectedUser.members.forEach((member) => {
+                            const mId = typeof member === "object" ? member._id : member;
+                            if (!mId || mId.toString() === authUser._id.toString()) return;
+                            
+                            for (let i = messages.length - 1; i >= 0; i--) {
+                                const msg = messages[i];
+                                const hasSeen = msg.seenBy?.some((u) => {
+                                    const uId = typeof u === "object" ? u._id : u;
+                                    return uId?.toString() === mId.toString();
+                                });
+                                if (hasSeen) {
+                                    if (!memberLastSeenMap[msg._id]) {
+                                        memberLastSeenMap[msg._id] = [];
+                                    }
+                                    memberLastSeenMap[msg._id].push(member);
+                                    break;
+                                }
+                            }
+                        });
+                    }
+
+                    return Object.entries(groupedMessages).map(([dateLabel, msgs]) => (
+                        <div key={dateLabel} className="space-y-4 relative">
                         {/* Date Divider Header */}
                         <div className="flex justify-center my-4">
                             <span className="bg-base-300/90 text-base-content/85 px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide shadow-sm border border-base-200/40">
@@ -1050,14 +1074,10 @@ const ChatContainer = () => {
                                         <span className="opacity-50">{formatMessageTime(message.createdAt)}</span>
                                         
                                         {/* Zalo Status Pill / Seen Avatar */}
-                                        {isMyMessage && (
+                                        {isMyMessage && !selectedUser.isGroup && (
                                             <>
                                                 {message._id === messages[messages.length - 1]?._id ? (
-                                                    selectedUser.isGroup ? (
-                                                        <span className="inline-flex items-center gap-0.5 bg-slate-200 border border-slate-300 text-slate-700 rounded-full px-1.5 py-[1px] text-[8px] font-semibold">
-                                                            <Check className="size-2.5" /> Đã gửi
-                                                        </span>
-                                                    ) : message.isSeen ? (
+                                                    message.isSeen ? (
                                                         <div className="size-3.5 rounded-full overflow-hidden border border-slate-300 ml-0.5 shadow-sm animate-fade-in flex-shrink-0" title="Đã xem">
                                                             <img src={selectedUser.profilePic || "/avatar.png"} alt="seen" className="w-full h-full object-cover" />
                                                         </div>
@@ -1069,15 +1089,35 @@ const ChatContainer = () => {
                                                 ) : null}
                                             </>
                                         )}
+
+                                        {/* Seen indicator row for Group Chats */}
+                                        {selectedUser.isGroup && memberLastSeenMap[message._id] && (
+                                            <div className="flex items-center -space-x-1 mt-0.5 select-none">
+                                                {memberLastSeenMap[message._id].map((member) => (
+                                                    <div 
+                                                        key={member._id}
+                                                        className="size-3.5 rounded-full overflow-hidden border border-white shadow-sm flex-shrink-0"
+                                                        title={`Đã xem bởi ${member.fullName}`}
+                                                    >
+                                                        <img 
+                                                            src={member.profilePic || "/avatar.png"} 
+                                                            alt={member.fullName} 
+                                                            className="w-full h-full object-cover" 
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
                             );
                         })}
                     </div>
-                ))}
+                ));
+            })()}
 
-                <div ref={messageEndRef} />
+            <div ref={messageEndRef} />
             </div>
 
             {isRecipientTyping && (
@@ -1430,20 +1470,59 @@ const ChatContainer = () => {
                                                     </div>
                                                 </div>
  
-                                                {/* Delete button (only visible to group creator for other members) */}
-                                                {amICreator && !isMemberCreator && (
-                                                    <button 
-                                                        onClick={async () => {
-                                                            if (window.confirm(`Bạn có chắc chắn muốn xóa ${memberName} khỏi nhóm?`)) {
-                                                                await removeGroupMember(selectedUser._id, memberId);
-                                                            }
-                                                        }}
-                                                        className="btn btn-ghost btn-circle btn-xs text-red-500 hover:bg-red-50 hover:text-red-600 transition-all animate-fade-in"
-                                                        title={`Xóa ${memberName} khỏi nhóm`}
-                                                    >
-                                                        <UserMinus className="size-3.5" />
-                                                    </button>
-                                                )}
+                                                <div className="flex items-center gap-1.5">
+                                                    {/* Friend action button for other group members */}
+                                                    {!isMe && (() => {
+                                                        const isFriend = authUser?.friends?.some(id => (typeof id === "object" ? id._id : id).toString() === memberId.toString());
+                                                        const hasSentRequest = authUser?.sentRequests?.some(id => (typeof id === "object" ? id._id : id).toString() === memberId.toString());
+                                                        const hasReceivedRequest = authUser?.friendRequests?.some(id => (typeof id === "object" ? id._id : id).toString() === memberId.toString());
+
+                                                        if (isFriend) return null;
+                                                        
+                                                        if (hasSentRequest) {
+                                                            return (
+                                                                <span className="text-[10px] text-slate-400 font-semibold bg-slate-100 px-2 py-1 rounded select-none">
+                                                                    Đã gửi
+                                                                </span>
+                                                            );
+                                                        }
+                                                        
+                                                        if (hasReceivedRequest) {
+                                                            return (
+                                                                <button 
+                                                                    onClick={() => acceptFriendRequest(memberId)}
+                                                                    className="bg-primary hover:bg-primary/90 text-white font-bold text-[10px] py-1 px-2.5 rounded transition-all select-none"
+                                                                >
+                                                                    Đồng ý
+                                                                </button>
+                                                            );
+                                                        }
+                                                        
+                                                        return (
+                                                            <button 
+                                                                onClick={() => sendFriendRequest(memberId)}
+                                                                className="bg-[#e1f0ff] hover:bg-[#cbe3ff] text-[#0068ff] font-bold text-[10px] py-1 px-2.5 rounded transition-all select-none"
+                                                            >
+                                                                Kết bạn
+                                                            </button>
+                                                        );
+                                                    })()}
+
+                                                    {/* Delete button (only visible to group creator for other members) */}
+                                                    {amICreator && !isMemberCreator && (
+                                                        <button 
+                                                            onClick={async () => {
+                                                                if (window.confirm(`Bạn có chắc chắn muốn xóa ${memberName} khỏi nhóm?`)) {
+                                                                    await removeGroupMember(selectedUser._id, memberId);
+                                                                }
+                                                            }}
+                                                            className="btn btn-ghost btn-circle btn-xs text-red-500 hover:bg-red-50 hover:text-red-600 transition-all animate-fade-in"
+                                                            title={`Xóa ${memberName} khỏi nhóm`}
+                                                        >
+                                                            <UserMinus className="size-3.5" />
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
                                         );
                                     })}
