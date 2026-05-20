@@ -59,7 +59,7 @@ const formatDateHeader = (dateString) => {
 // Trích xuất và định dạng chữ đậm/nghiêng/gạch ngang/code hỗ trợ cả HTML từ contenteditable và Markdown cũ
 const renderFormattedText = (text, searchQuery = "") => {
     if (!text) return "";
-    
+
     let htmlContent = "";
 
     // TRƯỜNG HỢP 1: Đây là văn bản Rich HTML được gửi từ ô contenteditable
@@ -226,11 +226,11 @@ const ChatContainer = () => {
 
     const friendsNotInGroup = users.filter((u) => {
         if (!u || u.isGroup || u.isDocuments) return false;
-        
+
         const isUserFriend = authUser?.friends?.some(
             (fId) => (fId?._id || fId)?.toString() === u._id?.toString()
         );
-        
+
         const isAlreadyInGroup = selectedUser?.members?.some(
             (m) => {
                 if (!m) return false;
@@ -238,7 +238,7 @@ const ChatContainer = () => {
                 return mId?.toString() === u._id?.toString();
             }
         );
-        
+
         const matchesSearch = u.fullName?.toLowerCase().includes(addMemberSearchQuery.toLowerCase());
         return isUserFriend && !isAlreadyInGroup && matchesSearch;
     });
@@ -252,7 +252,7 @@ const ChatContainer = () => {
             setIsHeBlockedMe(localStorage.getItem(`block_${selectedUser._id}_${authUser._id}`) === "true");
             setIsMuted(localStorage.getItem(`muted_${authUser._id}_${selectedUser._id}`) === "true");
             setIsPinnedConv(isConvPinned(authUser._id, selectedUser));
-            
+
             // Reset typing state immediately upon changing conversation
             setIsRecipientTyping(false);
             if (recipientTypingTimeoutRef.current) {
@@ -427,44 +427,44 @@ const ChatContainer = () => {
         ? messages.filter(msg => {
             if (msg.isRecalled) return false;
             const hasFile = msg.file && msg.file.url;
-            
+
             let matchQuery = true;
             if (searchQuery.trim() !== "") {
-                 matchQuery = msg.text && msg.text.toLowerCase().includes(searchQuery.toLowerCase()) && !hasFile;
+                matchQuery = msg.text && msg.text.toLowerCase().includes(searchQuery.toLowerCase()) && !hasFile;
             } else {
-                 matchQuery = msg.text && !hasFile; 
+                matchQuery = msg.text && !hasFile;
             }
 
             let matchDate = true;
             if (searchDate.trim() !== "") {
-                 const msgDate = new Date(msg.createdAt).toISOString().split('T')[0];
-                 matchDate = msgDate === searchDate;
+                const msgDate = new Date(msg.createdAt).toISOString().split('T')[0];
+                matchDate = msgDate === searchDate;
             }
 
             return matchQuery && matchDate;
-          })
+        })
         : [];
 
     const fileResults = (searchQuery.trim() !== "" || searchDate.trim() !== "")
         ? messages.filter(msg => {
             if (msg.isRecalled) return false;
             const hasFile = msg.file && msg.file.url;
-            
+
             let matchQuery = true;
             if (searchQuery.trim() !== "") {
-                 matchQuery = hasFile && msg.file.name && msg.file.name.toLowerCase().includes(searchQuery.toLowerCase());
+                matchQuery = hasFile && msg.file.name && msg.file.name.toLowerCase().includes(searchQuery.toLowerCase());
             } else {
-                 matchQuery = hasFile;
+                matchQuery = hasFile;
             }
 
             let matchDate = true;
             if (searchDate.trim() !== "") {
-                 const msgDate = new Date(msg.createdAt).toISOString().split('T')[0];
-                 matchDate = msgDate === searchDate;
+                const msgDate = new Date(msg.createdAt).toISOString().split('T')[0];
+                matchDate = msgDate === searchDate;
             }
 
             return matchQuery && matchDate;
-          })
+        })
         : [];
 
     const getFileColorAndIcon = (filename) => {
@@ -514,7 +514,7 @@ const ChatContainer = () => {
         const element = document.getElementById(`msg-${messageId}`);
         if (element) {
             element.scrollIntoView({ behavior: "smooth", block: "center" });
-            
+
             // Clean, gorgeous Zalo-style fading light blue glow overlay!
             element.classList.add("bg-sky-100/70", "dark:bg-sky-900/30", "scale-[1.015]", "ring-2", "ring-sky-400/40");
             setTimeout(() => {
@@ -527,11 +527,11 @@ const ChatContainer = () => {
         setIsSelectionMode(true);
         setSelectedMessageIds([initialMessage._id]);
     };
-    
+
     const handleToggleSelectMessage = (messageId) => {
-        setSelectedMessageIds(prev => 
-            prev.includes(messageId) 
-                ? prev.filter(id => id !== messageId) 
+        setSelectedMessageIds(prev =>
+            prev.includes(messageId)
+                ? prev.filter(id => id !== messageId)
                 : [...prev, messageId]
         );
     };
@@ -540,7 +540,7 @@ const ChatContainer = () => {
         const selectedMsgs = messages
             .filter(m => selectedMessageIds.includes(m._id))
             .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-        
+
         const copyText = selectedMsgs
             .map(m => {
                 const name = m.senderId === authUser._id ? authUser.fullName : selectedUser.fullName;
@@ -549,7 +549,7 @@ const ChatContainer = () => {
                 return `[${time}] ${name}: ${content}`;
             })
             .join("\n");
-        
+
         navigator.clipboard.writeText(copyText);
         toast.success(`Đã sao chép ${selectedMessageIds.length} tin nhắn`);
         setIsSelectionMode(false);
@@ -563,7 +563,7 @@ const ChatContainer = () => {
                     await deleteMessage(id, "me");
                 }
                 toast.success(`Đã xóa ${selectedMessageIds.length} tin nhắn`);
-            } catch (err) {}
+            } catch (err) { }
             setIsSelectionMode(false);
             setSelectedMessageIds([]);
         }
@@ -576,7 +576,7 @@ const ChatContainer = () => {
                     await deleteMessage(id, "everyone");
                 }
                 toast.success(`Đã thu hồi ${selectedMessageIds.length} tin nhắn`);
-            } catch (err) {}
+            } catch (err) { }
             setIsSelectionMode(false);
             setSelectedMessageIds([]);
         }
@@ -587,7 +587,7 @@ const ChatContainer = () => {
         const msgsToForward = messages
             .filter(m => selectedMessageIds.includes(m._id))
             .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-        
+
         await forwardMessages(selectedForwardUsers, msgsToForward);
         setIsForwardModalOpen(false);
         setIsSelectionMode(false);
@@ -602,9 +602,9 @@ const ChatContainer = () => {
         if (!keyword.trim()) return cleanText;
         const regex = new RegExp(`(${keyword.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, "gi");
         const parts = cleanText.split(regex);
-        return parts.map((part, index) => 
-            part.toLowerCase() === keyword.toLowerCase() 
-                ? <span key={index} className="text-[#0068ff] font-bold">{part}</span> 
+        return parts.map((part, index) =>
+            part.toLowerCase() === keyword.toLowerCase()
+                ? <span key={index} className="text-[#0068ff] font-bold">{part}</span>
                 : part
         );
     };
@@ -623,7 +623,7 @@ const ChatContainer = () => {
         <div className="flex-1 flex overflow-hidden bg-base-100">
             {/* Left Area: Main Chat Flow */}
             <div className="flex-1 flex flex-col overflow-hidden relative border-r border-base-300">
-                <ChatHeader 
+                <ChatHeader
                     onToggleSearch={() => {
                         setIsSearchOpen(!isSearchOpen);
                         setIsSidebarOpen(false);
@@ -649,13 +649,13 @@ const ChatContainer = () => {
                         <div className="flex-shrink-0 ml-2">
                             {hasReceivedRequest ? (
                                 <div className="flex items-center gap-1.5">
-                                    <button 
+                                    <button
                                         onClick={() => acceptFriendRequest(selectedUser._id)}
                                         className="btn btn-primary btn-xs text-white font-bold px-3 shadow-sm"
                                     >
                                         Đồng ý
                                     </button>
-                                    <button 
+                                    <button
                                         onClick={() => rejectFriendRequest(selectedUser._id)}
                                         className="btn btn-ghost btn-xs text-slate-600 hover:bg-slate-200/60 font-bold px-2.5"
                                     >
@@ -663,14 +663,14 @@ const ChatContainer = () => {
                                     </button>
                                 </div>
                             ) : hasSentRequest ? (
-                                <button 
+                                <button
                                     disabled
                                     className="btn btn-disabled btn-xs text-slate-500 font-bold px-3 border border-slate-200"
                                 >
                                     Đã gửi lời mời
                                 </button>
                             ) : (
-                                <button 
+                                <button
                                     onClick={() => sendFriendRequest(selectedUser._id)}
                                     className="btn btn-primary btn-xs text-white font-bold px-4 shadow-sm"
                                 >
@@ -682,641 +682,638 @@ const ChatContainer = () => {
                 )}
 
                 {/* Pinned Message Banner */}
-            {latestPinned && (
-                <div 
-                    onClick={() => {
-                        const element = document.getElementById(`msg-${latestPinned._id}`);
-                        if (element) {
-                            element.scrollIntoView({ behavior: "smooth", block: "center" });
-                            element.classList.add("bg-primary/25");
-                            setTimeout(() => {
-                                element.classList.remove("bg-primary/25");
-                            }, 1500);
-                        }
-                    }}
-                    className="bg-base-200/95 backdrop-blur border-b border-base-300 px-4 py-2 flex items-center justify-between text-xs cursor-pointer hover:bg-base-300/40 transition-colors select-none z-20 animate-fade-in"
-                >
-                    <div className="flex items-center gap-2 min-w-0">
-                        <Pin className="size-3.5 text-primary rotate-45 flex-shrink-0 animate-pulse" />
-                        <div className="min-w-0">
-                            <p className="font-semibold text-primary text-[11px] leading-tight">Tin nhắn ghim</p>
-                            <p className="text-base-content/70 truncate text-[11px] max-w-[300px] sm:max-w-[500px] leading-tight mt-0.5">
-                                {latestPinned.image ? "[Hình ảnh] " : ""}
-                                {latestPinned.file ? `[Tệp tin: ${latestPinned.file.name}] ` : ""}
-                                {latestPinned.text || ""}
-                            </p>
-                        </div>
-                    </div>
-                    <button 
-                        onClick={(e) => {
-                            e.stopPropagation(); // Ngăn hành vi cuộn khi click nút đóng
-                            pinMessage(latestPinned._id);
+                {latestPinned && (
+                    <div
+                        onClick={() => {
+                            const element = document.getElementById(`msg-${latestPinned._id}`);
+                            if (element) {
+                                element.scrollIntoView({ behavior: "smooth", block: "center" });
+                                element.classList.add("bg-primary/25");
+                                setTimeout(() => {
+                                    element.classList.remove("bg-primary/25");
+                                }, 1500);
+                            }
                         }}
-                        className="btn btn-ghost btn-circle btn-xs text-base-content/50 hover:text-base-content flex items-center justify-center flex-shrink-0"
+                        className="bg-base-200/95 backdrop-blur border-b border-base-300 px-4 py-2 flex items-center justify-between text-xs cursor-pointer hover:bg-base-300/40 transition-colors select-none z-20 animate-fade-in"
                     >
-                        <X className="size-3.5" />
-                    </button>
-                </div>
-            )}
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                {(() => {
-                    const memberLastSeenMap = {};
-                    if (selectedUser.isGroup && selectedUser.members) {
-                        selectedUser.members.forEach((member) => {
-                            const mId = typeof member === "object" ? member._id : member;
-                            if (!mId || mId.toString() === authUser._id.toString()) return;
-                            
-                            for (let i = messages.length - 1; i >= 0; i--) {
-                                const msg = messages[i];
-                                const hasSeen = msg.seenBy?.some((u) => {
-                                    const uId = typeof u === "object" ? u._id : u;
-                                    return uId?.toString() === mId.toString();
-                                });
-                                if (hasSeen) {
-                                    if (!memberLastSeenMap[msg._id]) {
-                                        memberLastSeenMap[msg._id] = [];
-                                    }
-                                    memberLastSeenMap[msg._id].push(member);
-                                    break;
-                                }
-                            }
-                        });
-                    }
-
-                    return Object.entries(groupedMessages).map(([dateLabel, msgs]) => (
-                        <div key={dateLabel} className="space-y-4 relative">
-                        {/* Date Divider Header */}
-                        <div className="flex justify-center my-4">
-                            <span className="bg-base-300/90 text-base-content/85 px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide shadow-sm border border-base-200/40">
-                                {dateLabel}
-                            </span>
+                        <div className="flex items-center gap-2 min-w-0">
+                            <Pin className="size-3.5 text-primary rotate-45 flex-shrink-0 animate-pulse" />
+                            <div className="min-w-0">
+                                <p className="font-semibold text-primary text-[11px] leading-tight">Tin nhắn ghim</p>
+                                <p className="text-base-content/70 truncate text-[11px] max-w-[300px] sm:max-w-[500px] leading-tight mt-0.5">
+                                    {latestPinned.image ? "[Hình ảnh] " : ""}
+                                    {latestPinned.file ? `[Tệp tin: ${latestPinned.file.name}] ` : ""}
+                                    {latestPinned.text || ""}
+                                </p>
+                            </div>
                         </div>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation(); // Ngăn hành vi cuộn khi click nút đóng
+                                pinMessage(latestPinned._id);
+                            }}
+                            className="btn btn-ghost btn-circle btn-xs text-base-content/50 hover:text-base-content flex items-center justify-center flex-shrink-0"
+                        >
+                            <X className="size-3.5" />
+                        </button>
+                    </div>
+                )}
 
-                        {msgs.map((message, idx) => {
-                            const nextMessage = msgs[idx + 1];
-                            const isLastInGroup = !nextMessage || 
-                                nextMessage.senderId !== message.senderId || 
-                                new Date(nextMessage.createdAt).getMinutes() !== new Date(message.createdAt).getMinutes() ||
-                                new Date(nextMessage.createdAt).getHours() !== new Date(message.createdAt).getHours() ||
-                                new Date(nextMessage.createdAt).getDate() !== new Date(message.createdAt).getDate();
+                <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                    {(() => {
+                        const memberLastSeenMap = {};
+                        if (selectedUser.isGroup && selectedUser.members) {
+                            selectedUser.members.forEach((member) => {
+                                const mId = typeof member === "object" ? member._id : member;
+                                if (!mId || mId.toString() === authUser._id.toString()) return;
 
-                            const isSystemMessage = selectedUser?.isGroup && (
-                                message.text?.startsWith("đã tạo nhóm") || 
-                                message.text?.includes("vào nhóm") ||
-                                message.text?.includes("khỏi nhóm") ||
-                                message.text?.includes("rời khỏi nhóm") ||
-                                message.text?.includes("nhường quyền trưởng nhóm") ||
-                                message.text?.includes("đổi tên nhóm thành") ||
-                                message.text?.includes("cập nhật ảnh đại diện của nhóm")
-                            );
+                                for (let i = messages.length - 1; i >= 0; i--) {
+                                    const msg = messages[i];
+                                    const hasSeen = msg.seenBy?.some((u) => {
+                                        const uId = typeof u === "object" ? u._id : u;
+                                        return uId?.toString() === mId.toString();
+                                    });
+                                    if (hasSeen) {
+                                        if (!memberLastSeenMap[msg._id]) {
+                                            memberLastSeenMap[msg._id] = [];
+                                        }
+                                        memberLastSeenMap[msg._id].push(member);
+                                        break;
+                                    }
+                                }
+                            });
+                        }
 
-                            if (isSystemMessage) {
-                                const senderName = (typeof message.senderId === "object" ? message.senderId?._id : message.senderId) === authUser._id
-                                    ? "Bạn"
-                                    : (typeof message.senderId === "object" ? message.senderId?.fullName : "Thành viên");
-                                return (
-                                    <div key={message._id} className="flex justify-center my-2 select-none animate-fade-in">
-                                        <span className="bg-base-200/80 text-base-content/60 px-3.5 py-1 rounded-full text-[11px] font-medium border border-base-300/30">
-                                            {senderName} {message.text}
-                                        </span>
-                                    </div>
-                                );
-                            }
-
-                            const isMyMessage = (typeof message.senderId === "object" ? message.senderId?._id : message.senderId) === authUser._id;
-                            const senderProfilePic = isMyMessage 
-                                ? authUser.profilePic 
-                                : (typeof message.senderId === "object" ? message.senderId?.profilePic : selectedUser.profilePic);
-                            const senderFullName = isMyMessage 
-                                ? authUser.fullName 
-                                : (typeof message.senderId === "object" ? message.senderId?.fullName : selectedUser.fullName);
-
-                            return (
-                                <div
-                                key={message._id}
-                                id={`msg-${message._id}`}
-                                className={`chat ${isMyMessage ? "chat-end" : "chat-start"} group relative transition-colors duration-500 rounded-xl p-1 ${isSelectionMode ? "hover:bg-slate-100/60 cursor-pointer select-none bg-slate-50/20" : ""}`}
-                                onClick={isSelectionMode ? () => handleToggleSelectMessage(message._id) : undefined}
-                            >
-                                {isSelectionMode && (
-                                    <div className="flex items-center justify-center px-1.5 self-center">
-                                        <input 
-                                            type="checkbox" 
-                                            checked={selectedMessageIds.includes(message._id)}
-                                            onChange={(e) => {
-                                                e.stopPropagation();
-                                                handleToggleSelectMessage(message._id);
-                                            }}
-                                            className="checkbox checkbox-primary checkbox-xs size-4 border-slate-300 pointer-events-none"
-                                        />
-                                    </div>
-                                )}
-                                <div className="chat-image avatar">
-                                    <div className="size-10 rounded-full border">
-                                        <img
-                                            src={senderProfilePic || "/avatar.png"}
-                                            alt="Ảnh đại diện"
-                                        />
-                                    </div>
+                        return Object.entries(groupedMessages).map(([dateLabel, msgs]) => (
+                            <div key={dateLabel} className="space-y-4 relative">
+                                {/* Date Divider Header */}
+                                <div className="flex justify-center my-4">
+                                    <span className="bg-base-300/90 text-base-content/85 px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide shadow-sm border border-base-200/40">
+                                        {dateLabel}
+                                    </span>
                                 </div>
-                                
-                                {/* Transparent wrapper grid item to position bubble and dropdown side-by-side without clipping */}
-                                <div className="chat-bubble bg-transparent p-0 max-w-[85%] overflow-visible flex items-center gap-2 shadow-none before:hidden after:hidden">
-                                    
-                                    {/* Action block for sender: Hover reaction panel + dropdown */}
-                                    {isMyMessage && !message.isRecalled && (
-                                        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                            {/* Quick Emoji Reaction Bar */}
-                                            <div className="flex items-center bg-white border border-slate-200/80 shadow-md rounded-full px-2 py-1 gap-1 select-none">
-                                                {["👍", "❤️", "😂", "😮", "😢", "😡"].map((emoji) => {
-                                                    const hasReacted = message.reactions?.some(
-                                                        (r) => r.userId.toString() === authUser._id.toString() && r.emoji === emoji
-                                                    );
-                                                    return (
-                                                        <button
-                                                            key={emoji}
-                                                            onClick={() => reactMessage(message._id, emoji)}
-                                                            className={`hover:scale-125 active:scale-95 transition-transform text-base p-0.5 rounded-full ${
-                                                                hasReacted ? "bg-blue-100 scale-110" : "hover:bg-slate-100"
-                                                            }`}
-                                                        >
-                                                            {emoji}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                            
-                                            {/* Dropdown Options */}
-                                            <div className="dropdown dropdown-top dropdown-end">
-                                                <div tabIndex={0} role="button" className="btn btn-ghost btn-circle btn-xs text-base-content/50 hover:text-base-content flex items-center justify-center">
-                                                    <MoreVertical className="size-4" />
-                                                </div>
-                                                <ul tabIndex={0} className="dropdown-content z-[20] menu p-1 shadow-lg bg-base-200 border border-base-300 rounded-box w-36 text-xs text-base-content">
-                                                    <li>
-                                                        <button onClick={() => setReplyingTo(message)} className="py-1.5 hover:bg-base-300 rounded-md">
-                                                            Trả lời
-                                                        </button>
-                                                    </li>
-                                                    <li>
-                                                        <button onClick={() => pinMessage(message._id)} className="py-1.5 hover:bg-base-300 rounded-md">
-                                                            {message.isPinned ? "Bỏ ghim" : "Ghim tin nhắn"}
-                                                        </button>
-                                                    </li>
-                                                    <li>
-                                                        <button onClick={() => handleEnableSelectionMode(message)} className="py-1.5 hover:bg-base-300 rounded-md">
-                                                            Chọn nhiều tin nhắn
-                                                        </button>
-                                                    </li>
-                                                    <li>
-                                                        <button onClick={() => deleteMessage(message._id, "me")} className="py-1.5 hover:bg-base-300 rounded-md">
-                                                            Xóa ở phía tôi
-                                                        </button>
-                                                    </li>
-                                                    <li>
-                                                        <button onClick={() => deleteMessage(message._id, "everyone")} className="py-1.5 text-error hover:bg-error/10 rounded-md">
-                                                            Thu hồi
-                                                        </button>
-                                                    </li>
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    )}
 
-                                    {/* The Actual Visible Chat Bubble wrapper (relative block to group image + bubble together) */}
-                                    <div className={`relative flex flex-col gap-1 max-w-full ${isMyMessage ? "items-end" : "items-start"}`}>
-                                        
-                                        {/* Group Sender Name */}
-                                        {selectedUser.isGroup && !isMyMessage && (
-                                            <span className="text-[10px] font-extrabold text-base-content/50 ml-1 mb-0.5 select-none leading-none">
-                                                {senderFullName}
-                                            </span>
-                                        )}
-                                        
-                                        {/* If there is an image, render it borderless and raw with rounded corners! */}
-                                        {message.image && (
-                                            <img
-                                                src={message.image}
-                                                alt="Attachment"
-                                                onClick={() => setViewingImage(message.image)}
-                                                className="max-w-[280px] sm:max-w-[320px] rounded-2xl cursor-zoom-in hover:opacity-95 transition-opacity shadow-sm border border-slate-200/30"
-                                            />
-                                        )}
+                                {msgs.map((message, idx) => {
+                                    const nextMessage = msgs[idx + 1];
+                                    const isLastInGroup = !nextMessage ||
+                                        nextMessage.senderId !== message.senderId ||
+                                        new Date(nextMessage.createdAt).getMinutes() !== new Date(message.createdAt).getMinutes() ||
+                                        new Date(nextMessage.createdAt).getHours() !== new Date(message.createdAt).getHours() ||
+                                        new Date(nextMessage.createdAt).getDate() !== new Date(message.createdAt).getDate();
 
-                                        {/* File card - rendered OUTSIDE bubble so file-only messages don't get blue bg */}
-                                        {message.file && message.file.url && !message.isRecalled && (() => {
-                                            const ext = message.file.name?.split('.').pop()?.toLowerCase() || '';
-                                            const fileTypeConfig = {
-                                                pdf: { bg: 'bg-red-500', letter: 'PDF', text: 'text-white' },
-                                                doc: { bg: 'bg-blue-600', letter: 'W', text: 'text-white' },
-                                                docx: { bg: 'bg-blue-600', letter: 'W', text: 'text-white' },
-                                                xls: { bg: 'bg-green-600', letter: 'X', text: 'text-white' },
-                                                xlsx: { bg: 'bg-green-600', letter: 'X', text: 'text-white' },
-                                                ppt: { bg: 'bg-orange-500', letter: 'P', text: 'text-white' },
-                                                pptx: { bg: 'bg-orange-500', letter: 'P', text: 'text-white' },
-                                                zip: { bg: 'bg-yellow-500', letter: 'ZIP', text: 'text-white' },
-                                                rar: { bg: 'bg-yellow-600', letter: 'RAR', text: 'text-white' },
-                                                txt: { bg: 'bg-slate-500', letter: 'TXT', text: 'text-white' },
-                                            };
-                                            const cfg = fileTypeConfig[ext] || { bg: 'bg-slate-400', letter: ext?.toUpperCase().slice(0,3) || '?', text: 'text-white' };
-                                            return (
-                                                <a
-                                                    href={message.file.url}
-                                                    download={message.file.name}
-                                                    className="flex items-center gap-3 bg-white hover:bg-slate-50 text-slate-800 p-3 rounded-xl border border-slate-200 transition-colors select-none max-w-[260px] text-left shadow-sm"
-                                                    title="Bấm để tải tệp về"
-                                                >
-                                                    <div className={`${cfg.bg} ${cfg.text} size-11 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm font-bold text-[11px] tracking-wide`}>
-                                                        {cfg.letter}
-                                                    </div>
-                                                    <div className="min-w-0 flex-1">
-                                                        <p className="text-sm font-semibold truncate leading-tight text-slate-800">{message.file.name}</p>
-                                                        <p className="text-[11px] text-slate-400 leading-none mt-1">
-                                                            {message.file.size ? `${(message.file.size / 1024).toFixed(1)} KB` : "Tệp đính kèm"}
-                                                        </p>
-                                                    </div>
-                                                </a>
-                                            );
-                                        })()}
+                                    const isSystemMessage = selectedUser?.isGroup && (
+                                        message.text?.startsWith("đã tạo nhóm") ||
+                                        message.text?.includes("vào nhóm") ||
+                                        message.text?.includes("khỏi nhóm") ||
+                                        message.text?.includes("rời khỏi nhóm") ||
+                                        message.text?.includes("nhường quyền trưởng nhóm") ||
+                                        message.text?.includes("đổi tên nhóm thành") ||
+                                        message.text?.includes("cập nhật ảnh đại diện của nhóm")
+                                    );
 
-                                        {/* Text bubble, reply context, or recalled - standard Zalo colored bubble */}
-                                        {(message.text || message.isRecalled || message.replyTo) && (
-                                            (() => {
-                                                const isMissedCall = message.text && (message.text.startsWith("[CALL_VIDEO_MISSED]") || message.text.startsWith("[CALL_AUDIO_MISSED]"));
-                                                if (isMissedCall) {
-                                                    const isVideo = message.text.includes("VIDEO");
-                                                    return (
-                                                        <div className="flex flex-col bg-slate-100/90 text-slate-800 border border-slate-200/80 rounded-2xl p-4 shadow-sm max-w-[280px] select-none hover:shadow-md transition-shadow relative">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="size-10 rounded-full bg-slate-200/80 flex items-center justify-center text-slate-600 flex-shrink-0">
-                                                                    {isVideo ? (
-                                                                        <VideoOff className="size-5 text-red-500" />
-                                                                    ) : (
-                                                                        <PhoneOff className="size-5 text-red-500" />
-                                                                    )}
-                                                                </div>
-                                                                <div className="min-w-0">
-                                                                    <h4 className="font-bold text-sm text-slate-800 tracking-wide truncate">
-                                                                        {isVideo ? "Đã bỏ lỡ cuộc gọi video" : "Đã bỏ lỡ cuộc gọi thoại"}
-                                                                    </h4>
-                                                                    <span className="text-[11px] text-slate-500 font-semibold mt-0.5 block">
-                                                                        {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                            <button 
-                                                                onClick={() => initiateCall(isVideo ? "video" : "audio", false)}
-                                                                className="w-full mt-3 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-slate-800 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-98"
-                                                            >
-                                                                Gọi lại
-                                                            </button>
-                                                        </div>
-                                                    );
-                                                }
-
-                                                const completedCall = !message.isRecalled && message.text ? parseCallCompleted(message.text) : null;
-                                                if (completedCall) {
-                                                    const isVideo = completedCall.media === "video";
-                                                    return (
-                                                        <div className="flex flex-col bg-slate-100/90 text-slate-800 border border-slate-200/80 rounded-2xl p-4 shadow-sm max-w-[280px] select-none hover:shadow-md transition-shadow relative">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="size-10 rounded-full bg-slate-200/80 flex items-center justify-center text-slate-800 flex-shrink-0 border border-slate-300/60">
-                                                                    {isVideo ? (
-                                                                        <Video className="size-5 text-slate-800" />
-                                                                    ) : (
-                                                                        <Phone className="size-5 text-slate-800" />
-                                                                    )}
-                                                                </div>
-                                                                <div className="min-w-0">
-                                                                    <h4 className="font-bold text-sm text-slate-800 tracking-wide truncate">
-                                                                        {isVideo ? "Cuộc gọi video" : "Cuộc gọi thoại"}
-                                                                    </h4>
-                                                                    <span className="text-[11px] text-slate-500 font-semibold mt-0.5 block">
-                                                                        {formatCallDurationVi(completedCall.seconds)}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => initiateCall(isVideo ? "video" : "audio", false)}
-                                                                className="w-full mt-3 py-2.5 bg-slate-200/90 hover:bg-slate-200 border border-slate-300/80 text-slate-900 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-98"
-                                                            >
-                                                                Gọi lại
-                                                            </button>
-                                                        </div>
-                                                    );
-                                                }
-
-                                                return (
-                                                    <div className={`flex flex-col relative py-2.5 px-4 rounded-2xl shadow-sm text-[14px] leading-relaxed max-w-full overflow-visible transition-all duration-200 ${
-                                                        isMyMessage 
-                                                            ? "bg-[#e1f0ff] border border-[#cbe3ff] text-[#081c36] rounded-tr-none" 
-                                                            : "bg-white border border-[#e4e6eb] text-[#1c1e21] rounded-tl-none"
-                                                    } ${message.isRecalled ? "bg-base-200/50 text-base-content/40 italic border-slate-200 shadow-none" : ""} ${message.isPinned ? "border-primary/50 ring-1 ring-primary/20" : ""}`}>
-                                                
-                                                {/* Pinned mini status inside bubble */}
-                                                {message.isPinned && (
-                                                    <div className="flex items-center gap-1 text-[9px] text-primary/80 font-bold mb-1 select-none uppercase tracking-wider">
-                                                        <Pin className="size-2.5 rotate-45 flex-shrink-0 text-primary" />
-                                                        <span>Đã ghim</span>
-                                                    </div>
-                                                )}
-
-                                                {/* Reply Context */}
-                                                {message.replyTo && (
-                                                    <div 
-                                                        onClick={() => {
-                                                            const element = document.getElementById(`msg-${message.replyTo._id}`);
-                                                            if (element) {
-                                                                element.scrollIntoView({ behavior: "smooth", block: "center" });
-                                                                element.classList.add("bg-primary/25");
-                                                                setTimeout(() => {
-                                                                    element.classList.remove("bg-primary/25");
-                                                                }, 1500);
-                                                            }
-                                                        }}
-                                                        className="cursor-pointer bg-black/5 hover:bg-black/10 transition-colors text-xs px-2.5 py-1.5 rounded border-l-4 border-primary/70 mb-1.5 opacity-85 flex items-center gap-2 max-w-[200px]"
-                                                    >
-                                                        {message.replyTo.image && (
-                                                            <img 
-                                                                src={message.replyTo.image} 
-                                                                alt="Replied Attachment" 
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setViewingImage(message.replyTo.image);
-                                                                }}
-                                                                className="w-6 h-6 object-cover rounded border border-base-300 flex-shrink-0 cursor-zoom-in hover:opacity-90 transition-opacity"
-                                                            />
-                                                        )}
-                                                        <div className="min-w-0 flex-1">
-                                                            <p className="font-semibold text-primary/80 truncate text-[10px] leading-tight">
-                                                                {message.replyTo.senderId?._id === authUser._id 
-                                                                    ? "Chính mình" 
-                                                                    : message.replyTo.senderId?.fullName || "Người dùng"}
-                                                            </p>
-                                                            <p className="text-slate-600 truncate text-[10px] leading-tight">
-                                                                {message.replyTo.isRecalled 
-                                                                    ? "Tin nhắn đã bị thu hồi" 
-                                                                    : message.replyTo.image ? "[Hình ảnh]" : message.replyTo.file ? `[Tệp tin: ${message.replyTo.file.name}]` : message.replyTo.text}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {message.isRecalled ? (
-                                                    <p className="text-sm py-1">Tin nhắn đã bị thu hồi</p>
-                                                ) : (
-                                                    <>
-                                                        {message.text && (
-                                                            <div className="flex flex-col gap-1.5">
-                                                                <p className="break-words text-sm whitespace-pre-wrap">
-                                                                    {renderFormattedText(message.text, searchQuery)}
-                                                                </p>
-                                                                
-                                                                {/* Link Preview Card */}
-                                                                {/https?:\/\/[^\s]+/gi.test(message.text) && (
-                                                                    <a href={message.text.match(/(https?:\/\/[^\s]+)/gi)?.[0] || "#"} target="_blank" rel="noopener noreferrer" className="mt-1 border border-slate-200/80 rounded-xl bg-white overflow-hidden shadow-sm max-w-[280px] select-none hover:shadow-md transition-shadow block no-underline text-inherit cursor-pointer">
-                                                                        {/* Link Thumbnail */}
-                                                                        <div className="h-32 bg-slate-100 relative overflow-hidden flex items-center justify-center">
-                                                                            <img 
-                                                                                src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&auto=format&fit=crop&q=80" 
-                                                                                alt="Link Preview" 
-                                                                                className="w-full h-full object-cover"
-                                                                            />
-                                                                            <div className="absolute top-2 left-2 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider">
-                                                                                Liên kết
-                                                                            </div>
-                                                                        </div>
-                                                                        
-                                                                        {/* Link Details */}
-                                                                        <div className="p-2.5 text-left">
-                                                                            <h4 className="text-xs font-bold text-slate-800 line-clamp-1 hover:text-blue-600 transition-colors">
-                                                                                {message.text.match(/https?:\/\/(www\.)?([^\/\s]+)/i)?.[2] || "Trang web liên kết"}
-                                                                            </h4>
-                                                                            <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5 leading-tight">
-                                                                                Bấm vào đây để truy cập và xem chi tiết nội dung trang web chia sẻ.
-                                                                            </p>
-                                                                            <span className="text-[9px] text-blue-500 font-semibold block mt-1.5 truncate">
-                                                                                {message.text.match(/(https?:\/\/[^\s]+)/gi)?.[0] || "Liên kết"}
-                                                                            </span>
-                                                                        </div>
-                                                                    </a>
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                    </>
-                                                )}
+                                    if (isSystemMessage) {
+                                        const senderName = (typeof message.senderId === "object" ? message.senderId?._id : message.senderId) === authUser._id
+                                            ? "Bạn"
+                                            : (typeof message.senderId === "object" ? message.senderId?.fullName : "Thành viên");
+                                        return (
+                                            <div key={message._id} className="flex justify-center my-2 select-none animate-fade-in">
+                                                <span className="bg-base-200/80 text-base-content/60 px-3.5 py-1 rounded-full text-[11px] font-medium border border-base-300/30">
+                                                    {senderName} {message.text}
+                                                </span>
                                             </div>
                                         );
-                                    })()
-                                )}
+                                    }
 
-                                        {/* Distinct Emoji Reaction Pill */}
-                                        {message.reactions && message.reactions.length > 0 && (
-                                            <div className="absolute -bottom-2.5 right-3 flex items-center gap-0.5 bg-white border border-slate-200 shadow-sm rounded-full px-1.5 py-0.5 text-xs select-none z-[5]">
-                                                {Array.from(new Set(message.reactions.map(r => r.emoji))).map((emoji, idx) => (
-                                                    <span key={idx} className="text-xs">{emoji}</span>
-                                                ))}
-                                                {message.reactions.length > 1 && (
-                                                    <span className="text-[9px] font-bold text-slate-500 ml-0.5">
-                                                        {message.reactions.length}
-                                                    </span>
+                                    const isMyMessage = (typeof message.senderId === "object" ? message.senderId?._id : message.senderId) === authUser._id;
+                                    const senderProfilePic = isMyMessage
+                                        ? authUser.profilePic
+                                        : (typeof message.senderId === "object" ? message.senderId?.profilePic : selectedUser.profilePic);
+                                    const senderFullName = isMyMessage
+                                        ? authUser.fullName
+                                        : (typeof message.senderId === "object" ? message.senderId?.fullName : selectedUser.fullName);
+
+                                    return (
+                                        <div
+                                            key={message._id}
+                                            id={`msg-${message._id}`}
+                                            className={`chat ${isMyMessage ? "chat-end" : "chat-start"} group relative transition-colors duration-500 rounded-xl p-1 ${isSelectionMode ? "hover:bg-slate-100/60 cursor-pointer select-none bg-slate-50/20" : ""}`}
+                                            onClick={isSelectionMode ? () => handleToggleSelectMessage(message._id) : undefined}
+                                        >
+                                            {isSelectionMode && (
+                                                <div className="flex items-center justify-center px-1.5 self-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedMessageIds.includes(message._id)}
+                                                        onChange={(e) => {
+                                                            e.stopPropagation();
+                                                            handleToggleSelectMessage(message._id);
+                                                        }}
+                                                        className="checkbox checkbox-primary checkbox-xs size-4 border-slate-300 pointer-events-none"
+                                                    />
+                                                </div>
+                                            )}
+                                            <div className="chat-image avatar">
+                                                <div className="size-10 rounded-full border">
+                                                    <img
+                                                        src={senderProfilePic || "/avatar.png"}
+                                                        alt="Ảnh đại diện"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Transparent wrapper grid item to position bubble and dropdown side-by-side without clipping */}
+                                            <div className="chat-bubble bg-transparent p-0 max-w-[85%] overflow-visible flex items-center gap-2 shadow-none before:hidden after:hidden">
+
+                                                {/* Action block for sender: Hover reaction panel + dropdown */}
+                                                {isMyMessage && !message.isRecalled && (
+                                                    <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                                        {/* Quick Emoji Reaction Bar */}
+                                                        <div className="flex items-center bg-white border border-slate-200/80 shadow-md rounded-full px-2 py-1 gap-1 select-none">
+                                                            {["👍", "❤️", "😂", "😮", "😢", "😡"].map((emoji) => {
+                                                                const hasReacted = message.reactions?.some(
+                                                                    (r) => r.userId.toString() === authUser._id.toString() && r.emoji === emoji
+                                                                );
+                                                                return (
+                                                                    <button
+                                                                        key={emoji}
+                                                                        onClick={() => reactMessage(message._id, emoji)}
+                                                                        className={`hover:scale-125 active:scale-95 transition-transform text-base p-0.5 rounded-full ${hasReacted ? "bg-blue-100 scale-110" : "hover:bg-slate-100"
+                                                                            }`}
+                                                                    >
+                                                                        {emoji}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+
+                                                        {/* Dropdown Options */}
+                                                        <div className="dropdown dropdown-top dropdown-end">
+                                                            <div tabIndex={0} role="button" className="btn btn-ghost btn-circle btn-xs text-base-content/50 hover:text-base-content flex items-center justify-center">
+                                                                <MoreVertical className="size-4" />
+                                                            </div>
+                                                            <ul tabIndex={0} className="dropdown-content z-[20] menu p-1 shadow-lg bg-base-200 border border-base-300 rounded-box w-36 text-xs text-base-content">
+                                                                <li>
+                                                                    <button onClick={() => setReplyingTo(message)} className="py-1.5 hover:bg-base-300 rounded-md">
+                                                                        Trả lời
+                                                                    </button>
+                                                                </li>
+                                                                <li>
+                                                                    <button onClick={() => pinMessage(message._id)} className="py-1.5 hover:bg-base-300 rounded-md">
+                                                                        {message.isPinned ? "Bỏ ghim" : "Ghim tin nhắn"}
+                                                                    </button>
+                                                                </li>
+                                                                <li>
+                                                                    <button onClick={() => handleEnableSelectionMode(message)} className="py-1.5 hover:bg-base-300 rounded-md">
+                                                                        Chọn nhiều tin nhắn
+                                                                    </button>
+                                                                </li>
+                                                                <li>
+                                                                    <button onClick={() => deleteMessage(message._id, "me")} className="py-1.5 hover:bg-base-300 rounded-md">
+                                                                        Xóa ở phía tôi
+                                                                    </button>
+                                                                </li>
+                                                                <li>
+                                                                    <button onClick={() => deleteMessage(message._id, "everyone")} className="py-1.5 text-error hover:bg-error/10 rounded-md">
+                                                                        Thu hồi
+                                                                    </button>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* The Actual Visible Chat Bubble wrapper (relative block to group image + bubble together) */}
+                                                <div className={`relative flex flex-col gap-1 max-w-full ${isMyMessage ? "items-end" : "items-start"}`}>
+
+                                                    {/* Group Sender Name */}
+                                                    {selectedUser.isGroup && !isMyMessage && (
+                                                        <span className="text-[10px] font-extrabold text-base-content/50 ml-1 mb-0.5 select-none leading-none">
+                                                            {senderFullName}
+                                                        </span>
+                                                    )}
+
+                                                    {/* If there is an image, render it borderless and raw with rounded corners! */}
+                                                    {message.image && (
+                                                        <img
+                                                            src={message.image}
+                                                            alt="Attachment"
+                                                            onClick={() => setViewingImage(message.image)}
+                                                            className="max-w-[280px] sm:max-w-[320px] rounded-2xl cursor-zoom-in hover:opacity-95 transition-opacity shadow-sm border border-slate-200/30"
+                                                        />
+                                                    )}
+
+                                                    {/* File card - rendered OUTSIDE bubble so file-only messages don't get blue bg */}
+                                                    {message.file && message.file.url && !message.isRecalled && (() => {
+                                                        const ext = message.file.name?.split('.').pop()?.toLowerCase() || '';
+                                                        const fileTypeConfig = {
+                                                            pdf: { bg: 'bg-red-500', letter: 'PDF', text: 'text-white' },
+                                                            doc: { bg: 'bg-blue-600', letter: 'W', text: 'text-white' },
+                                                            docx: { bg: 'bg-blue-600', letter: 'W', text: 'text-white' },
+                                                            xls: { bg: 'bg-green-600', letter: 'X', text: 'text-white' },
+                                                            xlsx: { bg: 'bg-green-600', letter: 'X', text: 'text-white' },
+                                                            ppt: { bg: 'bg-orange-500', letter: 'P', text: 'text-white' },
+                                                            pptx: { bg: 'bg-orange-500', letter: 'P', text: 'text-white' },
+                                                            zip: { bg: 'bg-yellow-500', letter: 'ZIP', text: 'text-white' },
+                                                            rar: { bg: 'bg-yellow-600', letter: 'RAR', text: 'text-white' },
+                                                            txt: { bg: 'bg-slate-500', letter: 'TXT', text: 'text-white' },
+                                                        };
+                                                        const cfg = fileTypeConfig[ext] || { bg: 'bg-slate-400', letter: ext?.toUpperCase().slice(0, 3) || '?', text: 'text-white' };
+                                                        return (
+                                                            <a
+                                                                href={message.file.url}
+                                                                download={message.file.name}
+                                                                className="flex items-center gap-3 bg-white hover:bg-slate-50 text-slate-800 p-3 rounded-xl border border-slate-200 transition-colors select-none max-w-[260px] text-left shadow-sm"
+                                                                title="Bấm để tải tệp về"
+                                                            >
+                                                                <div className={`${cfg.bg} ${cfg.text} size-11 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm font-bold text-[11px] tracking-wide`}>
+                                                                    {cfg.letter}
+                                                                </div>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <p className="text-sm font-semibold truncate leading-tight text-slate-800">{message.file.name}</p>
+                                                                    <p className="text-[11px] text-slate-400 leading-none mt-1">
+                                                                        {message.file.size ? `${(message.file.size / 1024).toFixed(1)} KB` : "Tệp đính kèm"}
+                                                                    </p>
+                                                                </div>
+                                                            </a>
+                                                        );
+                                                    })()}
+
+                                                    {/* Text bubble, reply context, or recalled - standard Zalo colored bubble */}
+                                                    {(message.text || message.isRecalled || message.replyTo) && (
+                                                        (() => {
+                                                            const isMissedCall = message.text && (message.text.startsWith("[CALL_VIDEO_MISSED]") || message.text.startsWith("[CALL_AUDIO_MISSED]"));
+                                                            if (isMissedCall) {
+                                                                const isVideo = message.text.includes("VIDEO");
+                                                                return (
+                                                                    <div className="flex flex-col bg-slate-100/90 text-slate-800 border border-slate-200/80 rounded-2xl p-4 shadow-sm max-w-[280px] select-none hover:shadow-md transition-shadow relative">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div className="size-10 rounded-full bg-slate-200/80 flex items-center justify-center text-slate-600 flex-shrink-0">
+                                                                                {isVideo ? (
+                                                                                    <VideoOff className="size-5 text-red-500" />
+                                                                                ) : (
+                                                                                    <PhoneOff className="size-5 text-red-500" />
+                                                                                )}
+                                                                            </div>
+                                                                            <div className="min-w-0">
+                                                                                <h4 className="font-bold text-sm text-slate-800 tracking-wide truncate">
+                                                                                    {isVideo ? "Đã bỏ lỡ cuộc gọi video" : "Đã bỏ lỡ cuộc gọi thoại"}
+                                                                                </h4>
+                                                                                <span className="text-[11px] text-slate-500 font-semibold mt-0.5 block">
+                                                                                    {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <button
+                                                                            onClick={() => initiateCall(isVideo ? "video" : "audio", false)}
+                                                                            className="w-full mt-3 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-slate-800 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-98"
+                                                                        >
+                                                                            Gọi lại
+                                                                        </button>
+                                                                    </div>
+                                                                );
+                                                            }
+
+                                                            const completedCall = !message.isRecalled && message.text ? parseCallCompleted(message.text) : null;
+                                                            if (completedCall) {
+                                                                const isVideo = completedCall.media === "video";
+                                                                return (
+                                                                    <div className="flex flex-col bg-slate-100/90 text-slate-800 border border-slate-200/80 rounded-2xl p-4 shadow-sm max-w-[280px] select-none hover:shadow-md transition-shadow relative">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div className="size-10 rounded-full bg-slate-200/80 flex items-center justify-center text-slate-800 flex-shrink-0 border border-slate-300/60">
+                                                                                {isVideo ? (
+                                                                                    <Video className="size-5 text-slate-800" />
+                                                                                ) : (
+                                                                                    <Phone className="size-5 text-slate-800" />
+                                                                                )}
+                                                                            </div>
+                                                                            <div className="min-w-0">
+                                                                                <h4 className="font-bold text-sm text-slate-800 tracking-wide truncate">
+                                                                                    {isVideo ? "Cuộc gọi video" : "Cuộc gọi thoại"}
+                                                                                </h4>
+                                                                                <span className="text-[11px] text-slate-500 font-semibold mt-0.5 block">
+                                                                                    {formatCallDurationVi(completedCall.seconds)}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => initiateCall(isVideo ? "video" : "audio", false)}
+                                                                            className="w-full mt-3 py-2.5 bg-slate-200/90 hover:bg-slate-200 border border-slate-300/80 text-slate-900 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-98"
+                                                                        >
+                                                                            Gọi lại
+                                                                        </button>
+                                                                    </div>
+                                                                );
+                                                            }
+
+                                                            return (
+                                                                <div className={`flex flex-col relative py-2.5 px-4 rounded-2xl shadow-sm text-[14px] leading-relaxed max-w-full overflow-visible transition-all duration-200 ${isMyMessage
+                                                                    ? "bg-[#e1f0ff] border border-[#cbe3ff] text-[#081c36] rounded-tr-none"
+                                                                    : "bg-white border border-[#e4e6eb] text-[#1c1e21] rounded-tl-none"
+                                                                    } ${message.isRecalled ? "bg-base-200/50 text-base-content/40 italic border-slate-200 shadow-none" : ""} ${message.isPinned ? "border-primary/50 ring-1 ring-primary/20" : ""}`}>
+
+                                                                    {/* Pinned mini status inside bubble */}
+                                                                    {message.isPinned && (
+                                                                        <div className="flex items-center gap-1 text-[9px] text-primary/80 font-bold mb-1 select-none uppercase tracking-wider">
+                                                                            <Pin className="size-2.5 rotate-45 flex-shrink-0 text-primary" />
+                                                                            <span>Đã ghim</span>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {/* Reply Context */}
+                                                                    {message.replyTo && (
+                                                                        <div
+                                                                            onClick={() => {
+                                                                                const element = document.getElementById(`msg-${message.replyTo._id}`);
+                                                                                if (element) {
+                                                                                    element.scrollIntoView({ behavior: "smooth", block: "center" });
+                                                                                    element.classList.add("bg-primary/25");
+                                                                                    setTimeout(() => {
+                                                                                        element.classList.remove("bg-primary/25");
+                                                                                    }, 1500);
+                                                                                }
+                                                                            }}
+                                                                            className="cursor-pointer bg-black/5 hover:bg-black/10 transition-colors text-xs px-2.5 py-1.5 rounded border-l-4 border-primary/70 mb-1.5 opacity-85 flex items-center gap-2 max-w-[200px]"
+                                                                        >
+                                                                            {message.replyTo.image && (
+                                                                                <img
+                                                                                    src={message.replyTo.image}
+                                                                                    alt="Replied Attachment"
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        setViewingImage(message.replyTo.image);
+                                                                                    }}
+                                                                                    className="w-6 h-6 object-cover rounded border border-base-300 flex-shrink-0 cursor-zoom-in hover:opacity-90 transition-opacity"
+                                                                                />
+                                                                            )}
+                                                                            <div className="min-w-0 flex-1">
+                                                                                <p className="font-semibold text-primary/80 truncate text-[10px] leading-tight">
+                                                                                    {message.replyTo.senderId?._id === authUser._id
+                                                                                        ? "Chính mình"
+                                                                                        : message.replyTo.senderId?.fullName || "Người dùng"}
+                                                                                </p>
+                                                                                <p className="text-slate-600 truncate text-[10px] leading-tight">
+                                                                                    {message.replyTo.isRecalled
+                                                                                        ? "Tin nhắn đã bị thu hồi"
+                                                                                        : message.replyTo.image ? "[Hình ảnh]" : message.replyTo.file ? `[Tệp tin: ${message.replyTo.file.name}]` : message.replyTo.text}
+                                                                                </p>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {message.isRecalled ? (
+                                                                        <p className="text-sm py-1">Tin nhắn đã bị thu hồi</p>
+                                                                    ) : (
+                                                                        <>
+                                                                            {message.text && (
+                                                                                <div className="flex flex-col gap-1.5">
+                                                                                    <p className="break-words text-sm whitespace-pre-wrap">
+                                                                                        {renderFormattedText(message.text, searchQuery)}
+                                                                                    </p>
+
+                                                                                    {/* Link Preview Card */}
+                                                                                    {/https?:\/\/[^\s]+/gi.test(message.text) && (
+                                                                                        <a href={message.text.match(/(https?:\/\/[^\s]+)/gi)?.[0] || "#"} target="_blank" rel="noopener noreferrer" className="mt-1 border border-slate-200/80 rounded-xl bg-white overflow-hidden shadow-sm max-w-[280px] select-none hover:shadow-md transition-shadow block no-underline text-inherit cursor-pointer">
+                                                                                            {/* Link Thumbnail */}
+                                                                                            <div className="h-32 bg-slate-100 relative overflow-hidden flex items-center justify-center">
+                                                                                                <img
+                                                                                                    src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&auto=format&fit=crop&q=80"
+                                                                                                    alt="Link Preview"
+                                                                                                    className="w-full h-full object-cover"
+                                                                                                />
+                                                                                                <div className="absolute top-2 left-2 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider">
+                                                                                                    Liên kết
+                                                                                                </div>
+                                                                                            </div>
+
+                                                                                            {/* Link Details */}
+                                                                                            <div className="p-2.5 text-left">
+                                                                                                <h4 className="text-xs font-bold text-slate-800 line-clamp-1 hover:text-blue-600 transition-colors">
+                                                                                                    {message.text.match(/https?:\/\/(www\.)?([^\/\s]+)/i)?.[2] || "Trang web liên kết"}
+                                                                                                </h4>
+                                                                                                <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5 leading-tight">
+                                                                                                    Bấm vào đây để truy cập và xem chi tiết nội dung trang web chia sẻ.
+                                                                                                </p>
+                                                                                                <span className="text-[9px] text-blue-500 font-semibold block mt-1.5 truncate">
+                                                                                                    {message.text.match(/(https?:\/\/[^\s]+)/gi)?.[0] || "Liên kết"}
+                                                                                                </span>
+                                                                                            </div>
+                                                                                        </a>
+                                                                                    )}
+                                                                                </div>
+                                                                            )}
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()
+                                                    )}
+
+                                                    {/* Distinct Emoji Reaction Pill */}
+                                                    {message.reactions && message.reactions.length > 0 && (
+                                                        <div className="absolute -bottom-2.5 right-3 flex items-center gap-0.5 bg-white border border-slate-200 shadow-sm rounded-full px-1.5 py-0.5 text-xs select-none z-[5]">
+                                                            {Array.from(new Set(message.reactions.map(r => r.emoji))).map((emoji, idx) => (
+                                                                <span key={idx} className="text-xs">{emoji}</span>
+                                                            ))}
+                                                            {message.reactions.length > 1 && (
+                                                                <span className="text-[9px] font-bold text-slate-500 ml-0.5">
+                                                                    {message.reactions.length}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Action block for receiver: Hover reaction panel + dropdown */}
+                                                {!isMyMessage && !message.isRecalled && (
+                                                    <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                                        {/* Dropdown Options */}
+                                                        <div className="dropdown dropdown-top dropdown-start">
+                                                            <div tabIndex={0} role="button" className="btn btn-ghost btn-circle btn-xs text-base-content/50 hover:text-base-content flex items-center justify-center">
+                                                                <MoreVertical className="size-4" />
+                                                            </div>
+                                                            <ul tabIndex={0} className="dropdown-content z-[20] menu p-1 shadow-lg bg-base-200 border border-base-300 rounded-box w-36 text-xs text-base-content">
+                                                                <li>
+                                                                    <button onClick={() => setReplyingTo(message)} className="py-1.5 hover:bg-base-300 rounded-md">
+                                                                        Trả lời
+                                                                    </button>
+                                                                </li>
+                                                                <li>
+                                                                    <button onClick={() => pinMessage(message._id)} className="py-1.5 hover:bg-base-300 rounded-md">
+                                                                        {message.isPinned ? "Bỏ ghim" : "Ghim tin nhắn"}
+                                                                    </button>
+                                                                </li>
+                                                                <li>
+                                                                    <button onClick={() => handleEnableSelectionMode(message)} className="py-1.5 hover:bg-base-300 rounded-md">
+                                                                        Chọn nhiều tin nhắn
+                                                                    </button>
+                                                                </li>
+                                                                <li>
+                                                                    <button onClick={() => deleteMessage(message._id, "me")} className="py-1.5 hover:bg-base-300 rounded-md">
+                                                                        Xóa ở phía tôi
+                                                                    </button>
+                                                                </li>
+                                                            </ul>
+                                                        </div>
+
+                                                        {/* Quick Emoji Reaction Bar */}
+                                                        <div className="flex items-center bg-white border border-slate-200/80 shadow-md rounded-full px-2 py-1 gap-1 select-none">
+                                                            {["👍", "❤️", "😂", "😮", "😢", "😡"].map((emoji) => {
+                                                                const hasReacted = message.reactions?.some(
+                                                                    (r) => r.userId.toString() === authUser._id.toString() && r.emoji === emoji
+                                                                );
+                                                                return (
+                                                                    <button
+                                                                        key={emoji}
+                                                                        onClick={() => reactMessage(message._id, emoji)}
+                                                                        className={`hover:scale-125 active:scale-95 transition-transform text-base p-0.5 rounded-full ${hasReacted ? "bg-blue-100 scale-110" : "hover:bg-slate-100"
+                                                                            }`}
+                                                                    >
+                                                                        {emoji}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
                                                 )}
                                             </div>
-                                        )}
-                                    </div>
 
-                                    {/* Action block for receiver: Hover reaction panel + dropdown */}
-                                    {!isMyMessage && !message.isRecalled && (
-                                        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                            {/* Dropdown Options */}
-                                            <div className="dropdown dropdown-top dropdown-start">
-                                                <div tabIndex={0} role="button" className="btn btn-ghost btn-circle btn-xs text-base-content/50 hover:text-base-content flex items-center justify-center">
-                                                    <MoreVertical className="size-4" />
-                                                </div>
-                                                <ul tabIndex={0} className="dropdown-content z-[20] menu p-1 shadow-lg bg-base-200 border border-base-300 rounded-box w-36 text-xs text-base-content">
-                                                    <li>
-                                                        <button onClick={() => setReplyingTo(message)} className="py-1.5 hover:bg-base-300 rounded-md">
-                                                            Trả lời
-                                                        </button>
-                                                    </li>
-                                                    <li>
-                                                        <button onClick={() => pinMessage(message._id)} className="py-1.5 hover:bg-base-300 rounded-md">
-                                                            {message.isPinned ? "Bỏ ghim" : "Ghim tin nhắn"}
-                                                        </button>
-                                                    </li>
-                                                    <li>
-                                                        <button onClick={() => handleEnableSelectionMode(message)} className="py-1.5 hover:bg-base-300 rounded-md">
-                                                            Chọn nhiều tin nhắn
-                                                        </button>
-                                                    </li>
-                                                    <li>
-                                                        <button onClick={() => deleteMessage(message._id, "me")} className="py-1.5 hover:bg-base-300 rounded-md">
-                                                            Xóa ở phía tôi
-                                                        </button>
-                                                    </li>
-                                                </ul>
-                                            </div>
+                                            {/* Time displayed below the bubble (Zalo style) + Status Pill */}
+                                            {isLastInGroup && (
+                                                <div className={`chat-footer text-[10px] mt-1 select-none flex items-center gap-1.5 ${isMyMessage ? "justify-end" : "justify-start"}`}>
+                                                    <span className="opacity-50">{formatMessageTime(message.createdAt)}</span>
 
-                                            {/* Quick Emoji Reaction Bar */}
-                                            <div className="flex items-center bg-white border border-slate-200/80 shadow-md rounded-full px-2 py-1 gap-1 select-none">
-                                                {["👍", "❤️", "😂", "😮", "😢", "😡"].map((emoji) => {
-                                                    const hasReacted = message.reactions?.some(
-                                                        (r) => r.userId.toString() === authUser._id.toString() && r.emoji === emoji
-                                                    );
-                                                    return (
-                                                        <button
-                                                            key={emoji}
-                                                            onClick={() => reactMessage(message._id, emoji)}
-                                                            className={`hover:scale-125 active:scale-95 transition-transform text-base p-0.5 rounded-full ${
-                                                                hasReacted ? "bg-blue-100 scale-110" : "hover:bg-slate-100"
-                                                            }`}
-                                                        >
-                                                            {emoji}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
+                                                    {/* Zalo Status Pill / Seen Avatar */}
+                                                    {isMyMessage && !selectedUser.isGroup && (
+                                                        <>
+                                                            {message._id === messages[messages.length - 1]?._id ? (
+                                                                message.isSeen ? (
+                                                                    <div className="size-3.5 rounded-full overflow-hidden border border-slate-300 ml-0.5 shadow-sm animate-fade-in flex-shrink-0" title="Đã xem">
+                                                                        <img src={selectedUser.profilePic || "/avatar.png"} alt="seen" className="w-full h-full object-cover" />
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="inline-flex items-center gap-0.5 bg-slate-200 border border-slate-300 text-slate-700 rounded-full px-1.5 py-[1px] text-[8px] font-semibold">
+                                                                        <Check className="size-2.5" /> Đã gửi
+                                                                    </span>
+                                                                )
+                                                            ) : null}
+                                                        </>
+                                                    )}
 
-                                {/* Time displayed below the bubble (Zalo style) + Status Pill */}
-                                {isLastInGroup && (
-                                    <div className={`chat-footer text-[10px] mt-1 select-none flex items-center gap-1.5 ${isMyMessage ? "justify-end" : "justify-start"}`}>
-                                        <span className="opacity-50">{formatMessageTime(message.createdAt)}</span>
-                                        
-                                        {/* Zalo Status Pill / Seen Avatar */}
-                                        {isMyMessage && !selectedUser.isGroup && (
-                                            <>
-                                                {message._id === messages[messages.length - 1]?._id ? (
-                                                    message.isSeen ? (
-                                                        <div className="size-3.5 rounded-full overflow-hidden border border-slate-300 ml-0.5 shadow-sm animate-fade-in flex-shrink-0" title="Đã xem">
-                                                            <img src={selectedUser.profilePic || "/avatar.png"} alt="seen" className="w-full h-full object-cover" />
+                                                    {/* Seen indicator row for Group Chats */}
+                                                    {selectedUser.isGroup && memberLastSeenMap[message._id] && (
+                                                        <div className="flex items-center -space-x-1 mt-0.5 select-none">
+                                                            {memberLastSeenMap[message._id].map((member) => (
+                                                                <div
+                                                                    key={member._id}
+                                                                    className="size-3.5 rounded-full overflow-hidden border border-white shadow-sm flex-shrink-0"
+                                                                    title={`Đã xem bởi ${member.fullName}`}
+                                                                >
+                                                                    <img
+                                                                        src={member.profilePic || "/avatar.png"}
+                                                                        alt={member.fullName}
+                                                                        className="w-full h-full object-cover"
+                                                                    />
+                                                                </div>
+                                                            ))}
                                                         </div>
-                                                    ) : (
-                                                        <span className="inline-flex items-center gap-0.5 bg-slate-200 border border-slate-300 text-slate-700 rounded-full px-1.5 py-[1px] text-[8px] font-semibold">
-                                                            <Check className="size-2.5" /> Đã gửi
-                                                        </span>
-                                                    )
-                                                ) : null}
-                                            </>
-                                        )}
-
-                                        {/* Seen indicator row for Group Chats */}
-                                        {selectedUser.isGroup && memberLastSeenMap[message._id] && (
-                                            <div className="flex items-center -space-x-1 mt-0.5 select-none">
-                                                {memberLastSeenMap[message._id].map((member) => (
-                                                    <div 
-                                                        key={member._id}
-                                                        className="size-3.5 rounded-full overflow-hidden border border-white shadow-sm flex-shrink-0"
-                                                        title={`Đã xem bởi ${member.fullName}`}
-                                                    >
-                                                        <img 
-                                                            src={member.profilePic || "/avatar.png"} 
-                                                            alt={member.fullName} 
-                                                            className="w-full h-full object-cover" 
-                                                        />
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
-                            );
-                        })}
-                    </div>
-                ));
-            })()}
+                        ));
+                    })()}
 
-            <div ref={messageEndRef} />
-            </div>
-
-            {isRecipientTyping && (
-                <div className="px-4 py-2 text-xs text-base-content/50 flex items-center gap-1.5 animate-fade-in select-none bg-base-100">
-                    <span className="font-semibold text-primary">
-                        {selectedUser.isGroup ? typingSenderName : selectedUser.fullName}
-                    </span> đang soạn tin...
-                    <span className="flex gap-0.5 items-center justify-center ml-0.5">
-                        <span className="size-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "0ms", animationDuration: "1000ms" }}></span>
-                        <span className="size-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "150ms", animationDuration: "1000ms" }}></span>
-                        <span className="size-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "300ms", animationDuration: "1000ms" }}></span>
-                    </span>
+                    <div ref={messageEndRef} />
                 </div>
-            )}
 
-            {/* Block Action Banner, Message Input, or Selection Bar */}
-            {isSelectionMode ? (
-                <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs select-none animate-slide-up">
-                    <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center justify-center size-5 bg-primary text-white rounded-full font-bold text-[10px]">
-                            {selectedMessageIds.length}
+                {isRecipientTyping && (
+                    <div className="px-4 py-2 text-xs text-base-content/50 flex items-center gap-1.5 animate-fade-in select-none bg-base-100">
+                        <span className="font-semibold text-primary">
+                            {selectedUser.isGroup ? typingSenderName : selectedUser.fullName}
+                        </span> đang soạn tin...
+                        <span className="flex gap-0.5 items-center justify-center ml-0.5">
+                            <span className="size-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "0ms", animationDuration: "1000ms" }}></span>
+                            <span className="size-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "150ms", animationDuration: "1000ms" }}></span>
+                            <span className="size-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: "300ms", animationDuration: "1000ms" }}></span>
                         </span>
-                        <span className="font-semibold text-slate-700 text-sm">Đã chọn</span>
                     </div>
-                    
-                    <div className="flex items-center gap-2.5">
-                        <button 
-                            onClick={handleCopySelected}
-                            disabled={selectedMessageIds.length === 0}
-                            className="btn btn-ghost btn-sm text-slate-700 hover:bg-slate-200/80 font-bold gap-1 text-[11px] disabled:opacity-40"
-                        >
-                            <Copy className="size-3.5" /> Sao chép
-                        </button>
-                        <button 
-                            onClick={() => setIsForwardModalOpen(true)}
-                            disabled={selectedMessageIds.length === 0}
-                            className="btn btn-ghost btn-sm text-slate-700 hover:bg-slate-200/80 font-bold gap-1 text-[11px] disabled:opacity-40"
-                        >
-                            <Share2 className="size-3.5 text-blue-600" /> Chia sẻ
-                        </button>
-                        {selectedMessageIds.every(id => {
-                            const msg = messages.find(m => m._id === id);
-                            return msg && msg.senderId === authUser._id && !msg.isRecalled;
-                        }) && (
-                            <button 
-                                onClick={handleRecallSelected}
+                )}
+
+                {/* Block Action Banner, Message Input, or Selection Bar */}
+                {isSelectionMode ? (
+                    <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs select-none animate-slide-up">
+                        <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center justify-center size-5 bg-primary text-white rounded-full font-bold text-[10px]">
+                                {selectedMessageIds.length}
+                            </span>
+                            <span className="font-semibold text-slate-700 text-sm">Đã chọn</span>
+                        </div>
+
+                        <div className="flex items-center gap-2.5">
+                            <button
+                                onClick={handleCopySelected}
+                                disabled={selectedMessageIds.length === 0}
+                                className="btn btn-ghost btn-sm text-slate-700 hover:bg-slate-200/80 font-bold gap-1 text-[11px] disabled:opacity-40"
+                            >
+                                <Copy className="size-3.5" /> Sao chép
+                            </button>
+                            <button
+                                onClick={() => setIsForwardModalOpen(true)}
+                                disabled={selectedMessageIds.length === 0}
+                                className="btn btn-ghost btn-sm text-slate-700 hover:bg-slate-200/80 font-bold gap-1 text-[11px] disabled:opacity-40"
+                            >
+                                <Share2 className="size-3.5 text-blue-600" /> Chia sẻ
+                            </button>
+                            {selectedMessageIds.every(id => {
+                                const msg = messages.find(m => m._id === id);
+                                return msg && msg.senderId === authUser._id && !msg.isRecalled;
+                            }) && (
+                                    <button
+                                        onClick={handleRecallSelected}
+                                        disabled={selectedMessageIds.length === 0}
+                                        className="btn btn-ghost btn-sm text-error hover:bg-error/10 font-bold gap-1 text-[11px] disabled:opacity-40"
+                                    >
+                                        <RefreshCw className="size-3.5 text-error" /> Thu hồi
+                                    </button>
+                                )}
+                            <button
+                                onClick={handleDeleteSelected}
                                 disabled={selectedMessageIds.length === 0}
                                 className="btn btn-ghost btn-sm text-error hover:bg-error/10 font-bold gap-1 text-[11px] disabled:opacity-40"
                             >
-                                <RefreshCw className="size-3.5 text-error" /> Thu hồi
+                                <Trash2 className="size-3.5" /> Xóa
                             </button>
-                        )}
-                        <button 
-                            onClick={handleDeleteSelected}
-                            disabled={selectedMessageIds.length === 0}
-                            className="btn btn-ghost btn-sm text-error hover:bg-error/10 font-bold gap-1 text-[11px] disabled:opacity-40"
+                        </div>
+
+                        <button
+                            onClick={() => {
+                                setIsSelectionMode(false);
+                                setSelectedMessageIds([]);
+                            }}
+                            className="btn btn-ghost btn-sm text-slate-600 hover:bg-slate-200/80 font-bold text-[11px] px-3.5"
                         >
-                            <Trash2 className="size-3.5" /> Xóa
+                            Hủy
                         </button>
                     </div>
-                    
-                    <button 
-                        onClick={() => {
-                            setIsSelectionMode(false);
-                            setSelectedMessageIds([]);
-                        }}
-                        className="btn btn-ghost btn-sm text-slate-600 hover:bg-slate-200/80 font-bold text-[11px] px-3.5"
+                ) : isIBlockedHim ? (
+                    <div
+                        onClick={handleToggleBlock}
+                        className="p-4 bg-red-50 border-t border-red-200 text-red-600 text-sm font-semibold flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-red-100 transition-colors select-none"
                     >
-                        Hủy
-                    </button>
-                </div>
-            ) : isIBlockedHim ? (
-                <div 
-                    onClick={handleToggleBlock}
-                    className="p-4 bg-red-50 border-t border-red-200 text-red-600 text-sm font-semibold flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-red-100 transition-colors select-none"
-                >
-                    <span className="flex items-center gap-1.5"><Ban className="size-4" /> Bạn đã chặn tin nhắn từ người dùng này.</span>
-                    <span className="text-[10px] font-normal text-red-500 underline">Bấm vào đây để bỏ chặn</span>
-                </div>
-            ) : isHeBlockedMe ? (
-                <div className="p-4 bg-gray-50 border-t border-gray-200 text-gray-500 text-sm font-semibold flex flex-col items-center justify-center gap-1 select-none">
-                    <span className="flex items-center gap-1.5"><Ban className="size-4 text-gray-400" /> Tài khoản này hiện không thể nhận tin nhắn.</span>
-                </div>
-            ) : (
-                <MessageInput />
-            )}
+                        <span className="flex items-center gap-1.5"><Ban className="size-4" /> Bạn đã chặn tin nhắn từ người dùng này.</span>
+                        <span className="text-[10px] font-normal text-red-500 underline">Bấm vào đây để bỏ chặn</span>
+                    </div>
+                ) : isHeBlockedMe ? (
+                    <div className="p-4 bg-gray-50 border-t border-gray-200 text-gray-500 text-sm font-semibold flex flex-col items-center justify-center gap-1 select-none">
+                        <span className="flex items-center gap-1.5"><Ban className="size-4 text-gray-400" /> Tài khoản này hiện không thể nhận tin nhắn.</span>
+                    </div>
+                ) : (
+                    <MessageInput />
+                )}
             </div>
 
             {/* Zalo Info Right Sidebar Panel */}
@@ -1325,7 +1322,7 @@ const ChatContainer = () => {
                     {/* Header with Title and Close Button */}
                     <div className="p-4 border-b border-base-300 flex items-center justify-between bg-base-100 sticky top-0 z-10">
                         <h3 className="font-extrabold text-xs text-base-content/80 uppercase tracking-wider">Thông tin hội thoại</h3>
-                        <button 
+                        <button
                             onClick={() => setIsSidebarOpen(false)}
                             className="btn btn-ghost btn-circle btn-xs text-base-content/65 hover:text-base-content hover:bg-base-200 transition-colors flex items-center justify-center size-6"
                             title="Đóng thông tin"
@@ -1345,14 +1342,14 @@ const ChatContainer = () => {
                             )}
                             {selectedUser.isGroup && (
                                 <>
-                                    <input 
-                                        type="file" 
-                                        ref={fileInputRef} 
-                                        className="hidden" 
-                                        accept="image/*" 
-                                        onChange={handleGroupPicUpdate} 
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        className="hidden"
+                                        accept="image/*"
+                                        onChange={handleGroupPicUpdate}
                                     />
-                                    <button 
+                                    <button
                                         onClick={() => fileInputRef.current?.click()}
                                         className="absolute -bottom-1 -right-1 p-1 bg-primary text-white rounded-full shadow hover:scale-105 active:scale-95 transition-all flex items-center justify-center size-6 cursor-pointer"
                                         title="Đổi ảnh đại diện nhóm"
@@ -1365,9 +1362,9 @@ const ChatContainer = () => {
                         </div>
                         {isEditingGroupName ? (
                             <div className="flex items-center gap-1 w-full max-w-[200px] justify-center mt-1">
-                                <input 
-                                    type="text" 
-                                    value={newGroupName} 
+                                <input
+                                    type="text"
+                                    value={newGroupName}
                                     onChange={(e) => setNewGroupName(e.target.value)}
                                     className="input input-bordered input-xs w-full text-center font-bold text-sm h-7 rounded px-1.5 focus:outline-primary"
                                     placeholder="Tên nhóm..."
@@ -1377,14 +1374,14 @@ const ChatContainer = () => {
                                         if (e.key === "Escape") setIsEditingGroupName(false);
                                     }}
                                 />
-                                <button 
+                                <button
                                     onClick={handleGroupNameUpdate}
                                     className="btn btn-square btn-xs btn-primary h-7 w-7 min-h-0 flex items-center justify-center rounded"
                                     title="Lưu"
                                 >
                                     <Check className="size-3.5" />
                                 </button>
-                                <button 
+                                <button
                                     onClick={() => setIsEditingGroupName(false)}
                                     className="btn btn-square btn-xs btn-ghost h-7 w-7 min-h-0 flex items-center justify-center rounded hover:bg-base-200"
                                     title="Hủy"
@@ -1396,7 +1393,7 @@ const ChatContainer = () => {
                             <h4 className="font-bold text-base text-base-content flex items-center gap-1 justify-center">
                                 <span className="truncate max-w-[180px]">{selectedUser.fullName}</span>
                                 {selectedUser.isGroup && (
-                                    <button 
+                                    <button
                                         onClick={() => {
                                             setNewGroupName(selectedUser.fullName || "");
                                             setIsEditingGroupName(true);
@@ -1411,43 +1408,42 @@ const ChatContainer = () => {
                         )}
                         <p className="text-xs text-base-content/50 mt-0.5">
                             {selectedUser.isDocuments
-                                ? "My document"
-                                : selectedUser.isGroup 
-                                ? `Nhóm • ${selectedUser.members?.length || 0} thành viên`
-                                : (onlineUsers.includes(selectedUser._id) ? "Đang hoạt động" : "Ngoại tuyến")
+                                ? "Lưu trữ và truy cập nhanh những nội dung quan trong của bạn ngay trên JudoChat"
+                                : selectedUser.isGroup
+                                    ? `Nhóm • ${selectedUser.members?.length || 0} thành viên`
+                                    : (onlineUsers.includes(selectedUser._id) ? "Đang hoạt động" : "Ngoại tuyến")
                             }
                         </p>
- 
+
                         {/* Action buttons (Mute, Pin, Add Member, Leave Group) */}
                         <div className={`grid ${selectedUser.isDocuments ? "grid-cols-1" : selectedUser.isGroup ? "grid-cols-4" : "grid-cols-3"} gap-2 w-full mt-5`}>
                             {/* Mute action (not for My document) */}
                             {!selectedUser.isDocuments && (
-                            <button 
-                                onClick={() => {
-                                    if (selectedUser && authUser) {
-                                        const nextMuted = !isMuted;
-                                        if (nextMuted) {
-                                            localStorage.setItem(`muted_${authUser._id}_${selectedUser._id}`, "true");
-                                        } else {
-                                            localStorage.removeItem(`muted_${authUser._id}_${selectedUser._id}`);
+                                <button
+                                    onClick={() => {
+                                        if (selectedUser && authUser) {
+                                            const nextMuted = !isMuted;
+                                            if (nextMuted) {
+                                                localStorage.setItem(`muted_${authUser._id}_${selectedUser._id}`, "true");
+                                            } else {
+                                                localStorage.removeItem(`muted_${authUser._id}_${selectedUser._id}`);
+                                            }
+                                            setIsMuted(nextMuted);
+                                            window.dispatchEvent(new Event("conversationMutedChanged"));
                                         }
-                                        setIsMuted(nextMuted);
-                                        window.dispatchEvent(new Event("conversationMutedChanged"));
-                                    }
-                                }}
-                                className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs gap-1.5 transition-colors ${
-                                    isMuted 
-                                        ? "bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100" 
+                                    }}
+                                    className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs gap-1.5 transition-colors ${isMuted
+                                        ? "bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100"
                                         : "bg-base-200/50 border-base-300 text-base-content/70 hover:bg-base-200"
-                                }`}
-                            >
-                                {isMuted ? <BellOff className="size-4" /> : <Bell className="size-4" />}
-                                <span className="text-[10px] font-semibold leading-none">{isMuted ? "Bật thông báo" : "Tắt thông báo"}</span>
-                            </button>
+                                        }`}
+                                >
+                                    {isMuted ? <BellOff className="size-4" /> : <Bell className="size-4" />}
+                                    <span className="text-[10px] font-semibold leading-none">{isMuted ? "Bật thông báo" : "Tắt thông báo"}</span>
+                                </button>
                             )}
- 
+
                             {/* Pin action */}
-                            <button 
+                            <button
                                 onClick={() => {
                                     if (selectedUser && authUser) {
                                         const nextPinned = !isPinnedConv;
@@ -1456,11 +1452,10 @@ const ChatContainer = () => {
                                         window.dispatchEvent(new Event("pinnedConversationsChanged"));
                                     }
                                 }}
-                                className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs gap-1.5 transition-colors ${
-                                    isPinnedConv 
-                                        ? "bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100 ring-2 ring-blue-500/20" 
-                                        : "bg-base-200/50 border-base-300 text-base-content/70 hover:bg-base-200"
-                                }`}
+                                className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs gap-1.5 transition-colors ${isPinnedConv
+                                    ? "bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100 ring-2 ring-blue-500/20"
+                                    : "bg-base-200/50 border-base-300 text-base-content/70 hover:bg-base-200"
+                                    }`}
                             >
                                 <Pin className={`size-4 ${isPinnedConv ? "fill-blue-500 text-blue-600" : "rotate-45"}`} />
                                 <span className="text-[10px] font-semibold leading-none">{isPinnedConv ? "Bỏ ghim" : "Ghim"}</span>
@@ -1468,7 +1463,7 @@ const ChatContainer = () => {
 
                             {/* Add Member action (Only for groups) */}
                             {selectedUser.isGroup && (
-                                <button 
+                                <button
                                     onClick={() => setIsAddMemberModalOpen(true)}
                                     className="flex flex-col items-center justify-center p-2 rounded-xl border border-base-300 bg-base-200/50 hover:bg-base-200 text-primary transition-colors text-xs gap-1.5"
                                 >
@@ -1476,10 +1471,10 @@ const ChatContainer = () => {
                                     <span className="text-[10px] font-semibold leading-none">Thêm TV</span>
                                 </button>
                             )}
- 
+
                             {/* Block or Leave Group action */}
                             {selectedUser.isGroup ? (
-                                <button 
+                                <button
                                     onClick={async () => {
                                         const amICreator = selectedUser.creator === authUser?._id || selectedUser.creator?._id === authUser?._id;
                                         const otherMembers = selectedUser.members?.filter(m => {
@@ -1487,7 +1482,7 @@ const ChatContainer = () => {
                                             const mId = typeof m === "object" ? m._id : m;
                                             return mId !== authUser?._id;
                                         }) || [];
-                                        
+
                                         if (amICreator && otherMembers.length > 0) {
                                             const firstOtherId = typeof otherMembers[0] === "object" ? otherMembers[0]._id : otherMembers[0];
                                             setSelectedNewLeaderId(firstOtherId);
@@ -1504,13 +1499,12 @@ const ChatContainer = () => {
                                     <span className="text-[10px] font-semibold leading-none">Rời nhóm</span>
                                 </button>
                             ) : !selectedUser.isDocuments ? (
-                                <button 
+                                <button
                                     onClick={handleToggleBlock}
-                                    className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs gap-1.5 transition-colors ${
-                                        isIBlockedHim 
-                                            ? "bg-red-50 border-red-200 text-red-600 hover:bg-red-100" 
-                                            : "bg-base-200/50 border-base-300 text-base-content/70 hover:bg-base-200"
-                                    }`}
+                                    className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs gap-1.5 transition-colors ${isIBlockedHim
+                                        ? "bg-red-50 border-red-200 text-red-600 hover:bg-red-100"
+                                        : "bg-base-200/50 border-base-300 text-base-content/70 hover:bg-base-200"
+                                        }`}
                                 >
                                     <Ban className="size-4" />
                                     <span className="text-[10px] font-semibold leading-none">{isIBlockedHim ? "Bỏ chặn" : "Chặn"}</span>
@@ -1518,10 +1512,10 @@ const ChatContainer = () => {
                             ) : null}
                         </div>
                     </div>
- 
+
                     {/* Shared History sections */}
                     <div className="flex-1 p-4 space-y-5 overflow-y-auto">
-                        
+
                         {/* Group Members Section (Only for groups) */}
                         {selectedUser.isGroup && (
                             <div className="border-b border-base-300 pb-4">
@@ -1563,13 +1557,13 @@ const ChatContainer = () => {
                                         const isMemberCreator = selectedUser.creator === memberId || (selectedUser.creator?._id || selectedUser.creator) === memberId;
                                         const isMe = memberId === authUser?._id;
                                         const amICreator = selectedUser.creator === authUser?._id || selectedUser.creator?._id === authUser?._id;
- 
+
                                         return (
                                             <div key={memberId} className="flex items-center justify-between p-1.5 hover:bg-base-200/50 rounded-lg transition-colors">
                                                 <div className="flex items-center gap-2 min-w-0">
-                                                    <img 
-                                                        src={memberPic} 
-                                                        alt={memberName} 
+                                                    <img
+                                                        src={memberPic}
+                                                        alt={memberName}
                                                         className="size-7 rounded-full object-cover border border-base-300"
                                                     />
                                                     <div className="min-w-0">
@@ -1582,7 +1576,7 @@ const ChatContainer = () => {
                                                         )}
                                                     </div>
                                                 </div>
- 
+
                                                 <div className="flex items-center gap-1.5">
                                                     {/* Friend action button for other group members */}
                                                     {!isMe && (() => {
@@ -1591,7 +1585,7 @@ const ChatContainer = () => {
                                                         const hasReceivedRequest = authUser?.friendRequests?.some(id => (typeof id === "object" ? id._id : id).toString() === memberId.toString());
 
                                                         if (isFriend) return null;
-                                                        
+
                                                         if (hasSentRequest) {
                                                             return (
                                                                 <span className="text-[10px] text-slate-400 font-semibold bg-slate-100 px-2 py-1 rounded select-none">
@@ -1599,10 +1593,10 @@ const ChatContainer = () => {
                                                                 </span>
                                                             );
                                                         }
-                                                        
+
                                                         if (hasReceivedRequest) {
                                                             return (
-                                                                <button 
+                                                                <button
                                                                     onClick={() => acceptFriendRequest(memberId)}
                                                                     className="bg-primary hover:bg-primary/90 text-white font-bold text-[10px] py-1 px-2.5 rounded transition-all select-none"
                                                                 >
@@ -1610,9 +1604,9 @@ const ChatContainer = () => {
                                                                 </button>
                                                             );
                                                         }
-                                                        
+
                                                         return (
-                                                            <button 
+                                                            <button
                                                                 onClick={() => sendFriendRequest(memberId)}
                                                                 className="bg-[#e1f0ff] hover:bg-[#cbe3ff] text-[#0068ff] font-bold text-[10px] py-1 px-2.5 rounded transition-all select-none"
                                                             >
@@ -1623,7 +1617,7 @@ const ChatContainer = () => {
 
                                                     {/* Delete button (only visible to group creator for other members) */}
                                                     {amICreator && !isMemberCreator && (
-                                                        <button 
+                                                        <button
                                                             onClick={async () => {
                                                                 if (window.confirm(`Bạn có chắc chắn muốn xóa ${memberName} khỏi nhóm?`)) {
                                                                     await removeGroupMember(selectedUser._id, memberId);
@@ -1642,7 +1636,7 @@ const ChatContainer = () => {
                                 </div>
                             </div>
                         )}
-                        
+
                         {/* Image/Video section */}
                         <div>
                             <div className="flex items-center justify-between mb-2">
@@ -1654,25 +1648,25 @@ const ChatContainer = () => {
                                     {sharedImages.length} mục
                                 </span>
                             </div>
-                            
+
                             {sharedImages.length > 0 ? (
                                 <div>
                                     <div className="grid grid-cols-3 gap-1.5">
                                         {(showAllSharedImages ? sharedImages : sharedImages.slice(0, 6)).map((msg, i) => (
-                                            <div 
-                                                key={i} 
+                                            <div
+                                                key={i}
                                                 className="group/item relative aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200/60"
                                             >
                                                 <img src={msg.image} alt="Shared" className="w-full h-full object-cover cursor-zoom-in" onClick={() => setViewingImage(msg.image)} />
                                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/item:opacity-100 transition-opacity flex items-center justify-center gap-1.5 z-10">
-                                                    <button 
+                                                    <button
                                                         onClick={() => setViewingImage(msg.image)}
                                                         className="size-7 rounded-full bg-white/90 hover:bg-white text-slate-800 flex items-center justify-center shadow-md transition-colors"
                                                         title="Xem ảnh"
                                                     >
                                                         <Search className="size-3.5" />
                                                     </button>
-                                                    <button 
+                                                    <button
                                                         onClick={() => handleJumpToMessage(msg._id)}
                                                         className="size-7 rounded-full bg-white/90 hover:bg-white text-slate-800 flex items-center justify-center shadow-md transition-colors"
                                                         title="Xem tin nhắn gốc"
@@ -1684,7 +1678,7 @@ const ChatContainer = () => {
                                         ))}
                                     </div>
                                     {sharedImages.length > 6 && !showAllSharedImages && (
-                                        <button 
+                                        <button
                                             onClick={() => setShowAllSharedImages(true)}
                                             className="w-full text-center py-1.5 text-[10px] font-semibold text-primary/80 hover:text-primary hover:bg-primary/5 rounded border border-dashed border-base-300 mt-2 transition-all animate-fade-in"
                                         >
@@ -1710,17 +1704,17 @@ const ChatContainer = () => {
                                     {sharedFiles.length} tệp
                                 </span>
                             </div>
-                            
+
                             {sharedFiles.length > 0 ? (
                                 <div>
                                     <div className="space-y-1.5 pr-1">
                                         {(showAllSharedFiles ? sharedFiles : sharedFiles.slice(0, 3)).map((msg, i) => (
-                                            <div 
-                                                key={i} 
+                                            <div
+                                                key={i}
                                                 className="group/file relative flex items-center gap-2 p-2 bg-base-200/50 hover:bg-base-200 border border-base-300 rounded-lg transition-colors select-none text-left"
                                             >
-                                                <a 
-                                                    href={msg.file.url} 
+                                                <a
+                                                    href={msg.file.url}
                                                     download={msg.file.name}
                                                     className="flex items-center gap-2 min-w-0 flex-1"
                                                 >
@@ -1734,7 +1728,7 @@ const ChatContainer = () => {
                                                         </p>
                                                     </div>
                                                 </a>
-                                                <button 
+                                                <button
                                                     onClick={() => handleJumpToMessage(msg._id)}
                                                     className="opacity-0 group-hover/file:opacity-100 size-6 rounded bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 flex items-center justify-center shadow-sm transition-all flex-shrink-0"
                                                     title="Xem tin nhắn gốc"
@@ -1745,7 +1739,7 @@ const ChatContainer = () => {
                                         ))}
                                     </div>
                                     {sharedFiles.length > 3 && !showAllSharedFiles && (
-                                        <button 
+                                        <button
                                             onClick={() => setShowAllSharedFiles(true)}
                                             className="w-full text-center py-1.5 text-[10px] font-semibold text-primary/80 hover:text-primary hover:bg-primary/5 rounded border border-dashed border-base-300 mt-2 transition-all animate-fade-in"
                                         >
@@ -1771,20 +1765,20 @@ const ChatContainer = () => {
                                     {sharedLinks.length} liên kết
                                 </span>
                             </div>
-                            
+
                             {sharedLinks.length > 0 ? (
                                 <div>
                                     <div className="space-y-1.5 pr-1">
                                         {(showAllSharedLinks ? sharedLinks : sharedLinks.slice(0, 3)).map((msg, i) => {
                                             const url = msg.text.match(/(https?:\/\/[^\s]+)/gi)?.[0] || "#";
                                             return (
-                                                <div 
-                                                    key={i} 
+                                                <div
+                                                    key={i}
                                                     className="group/link relative flex items-center gap-2 p-2 bg-base-200/50 hover:bg-base-200 border border-base-300 rounded-lg transition-colors select-none text-left"
                                                 >
-                                                    <a 
-                                                        href={url} 
-                                                        target="_blank" 
+                                                    <a
+                                                        href={url}
+                                                        target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="flex items-center gap-2 min-w-0 flex-1"
                                                     >
@@ -1798,7 +1792,7 @@ const ChatContainer = () => {
                                                             </p>
                                                         </div>
                                                     </a>
-                                                    <button 
+                                                    <button
                                                         onClick={() => handleJumpToMessage(msg._id)}
                                                         className="opacity-0 group-hover/link:opacity-100 size-6 rounded bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 flex items-center justify-center shadow-sm transition-all flex-shrink-0"
                                                         title="Xem tin nhắn gốc"
@@ -1810,7 +1804,7 @@ const ChatContainer = () => {
                                         })}
                                     </div>
                                     {sharedLinks.length > 3 && !showAllSharedLinks && (
-                                        <button 
+                                        <button
                                             onClick={() => setShowAllSharedLinks(true)}
                                             className="w-full text-center py-1.5 text-[10px] font-semibold text-primary/80 hover:text-primary hover:bg-primary/5 rounded border border-dashed border-base-300 mt-2 transition-all animate-fade-in"
                                         >
@@ -1829,7 +1823,7 @@ const ChatContainer = () => {
                     {/* Dangerous Action Footer */}
                     <div className="p-4 border-t border-base-300 bg-base-200/20 space-y-2">
                         {selectedUser.isGroup && (
-                            <button 
+                            <button
                                 onClick={async () => {
                                     if (window.confirm("Bạn có chắc chắn muốn rời khỏi nhóm này?")) {
                                         await leaveGroup(selectedUser._id);
@@ -1842,33 +1836,33 @@ const ChatContainer = () => {
                             </button>
                         )}
                         {!selectedUser.isDocuments && !selectedUser.isGroup && (
-                        <button 
-                            onClick={() => {
-                                if (window.confirm("Bạn có chắc chắn muốn xóa cuộc trò chuyện này? Tin nhắn sẽ ẩn khỏi danh sách nhưng vẫn giữ quan hệ bạn bè.")) {
-                                    clearMessages();
-                                    localStorage.setItem(`deleted_chat_${authUser._id}_${selectedUser._id}`, "true");
-                                    setSelectedUser(null);
-                                }
-                            }}
-                            className="btn btn-error btn-outline btn-sm w-full gap-2 text-xs flex items-center justify-center font-bold"
-                        >
-                            <Trash2 className="size-4" />
-                            <span>Xóa cuộc trò chuyện</span>
-                        </button>
+                            <button
+                                onClick={() => {
+                                    if (window.confirm("Bạn có chắc chắn muốn xóa cuộc trò chuyện này? Tin nhắn sẽ ẩn khỏi danh sách nhưng vẫn giữ quan hệ bạn bè.")) {
+                                        clearMessages();
+                                        localStorage.setItem(`deleted_chat_${authUser._id}_${selectedUser._id}`, "true");
+                                        setSelectedUser(null);
+                                    }
+                                }}
+                                className="btn btn-error btn-outline btn-sm w-full gap-2 text-xs flex items-center justify-center font-bold"
+                            >
+                                <Trash2 className="size-4" />
+                                <span>Xóa cuộc trò chuyện</span>
+                            </button>
                         )}
                         {!selectedUser.isDocuments && !selectedUser.isGroup && isFriend && (
-                        <button 
-                            onClick={async () => {
-                                if (window.confirm(`Hủy kết bạn với ${selectedUser.fullName}? Người này sẽ biến mất khỏi danh sách bạn bè.`)) {
-                                    await unfriend(selectedUser._id);
-                                    setSelectedUser(null);
-                                }
-                            }}
-                            className="btn btn-error btn-sm w-full gap-2 text-xs flex items-center justify-center font-bold"
-                        >
-                            <UserMinus className="size-4" />
-                            <span>Xóa bạn</span>
-                        </button>
+                            <button
+                                onClick={async () => {
+                                    if (window.confirm(`Hủy kết bạn với ${selectedUser.fullName}? Người này sẽ biến mất khỏi danh sách bạn bè.`)) {
+                                        await unfriend(selectedUser._id);
+                                        setSelectedUser(null);
+                                    }
+                                }}
+                                className="btn btn-error btn-sm w-full gap-2 text-xs flex items-center justify-center font-bold"
+                            >
+                                <UserMinus className="size-4" />
+                                <span>Xóa bạn</span>
+                            </button>
                         )}
                     </div>
                 </div>
@@ -1882,7 +1876,7 @@ const ChatContainer = () => {
                         <h3 className="font-bold text-sm text-base-content flex items-center gap-1.5">
                             <Search className="size-4 text-primary" /> Tìm kiếm tin nhắn
                         </h3>
-                        <button 
+                        <button
                             onClick={() => {
                                 setIsSearchOpen(false);
                                 setSearchQuery("");
@@ -1913,7 +1907,7 @@ const ChatContainer = () => {
                                 autoFocus
                             />
                             {searchQuery && (
-                                <button 
+                                <button
                                     onClick={() => {
                                         setSearchQuery("");
                                         setShowAllTextResults(false);
@@ -1930,7 +1924,7 @@ const ChatContainer = () => {
                         <div className="flex items-center gap-1.5 text-[11px] text-base-content/70">
                             <span>Lọc theo:</span>
                             <div className="relative">
-                                <input 
+                                <input
                                     type="date"
                                     value={searchDate}
                                     onChange={(e) => {
@@ -1941,7 +1935,7 @@ const ChatContainer = () => {
                                     className="bg-base-200 border border-base-300/80 px-2 py-0.5 rounded cursor-pointer hover:bg-base-300 transition-colors font-medium text-[10px] focus:outline-none focus:border-primary"
                                 />
                                 {searchDate && (
-                                    <button 
+                                    <button
                                         onClick={() => setSearchDate("")}
                                         className="absolute right-6 top-1/2 -translate-y-1/2 text-base-content/50 hover:text-red-500 bg-base-200"
                                     >
@@ -1975,9 +1969,9 @@ const ChatContainer = () => {
                                                 const isMe = msg.senderId === authUser._id;
                                                 const senderName = isMe ? "Bạn" : selectedUser.fullName;
                                                 const senderAvatar = isMe ? authUser.profilePic : selectedUser.profilePic;
-                                                
+
                                                 return (
-                                                    <div 
+                                                    <div
                                                         key={msg._id}
                                                         onClick={() => handleJumpToMessage(msg._id)}
                                                         className="flex gap-2.5 py-3 px-1.5 hover:bg-primary/5 cursor-pointer transition-colors text-left group"
@@ -1998,10 +1992,10 @@ const ChatContainer = () => {
                                                 );
                                             })}
                                         </div>
-                                        
+
                                         {/* "Xem thêm" button for textResults */}
                                         {textResults.length > 4 && !showAllTextResults && (
-                                            <button 
+                                            <button
                                                 onClick={() => setShowAllTextResults(true)}
                                                 className="w-full text-center py-2 text-xs font-semibold text-primary/80 hover:text-primary hover:bg-primary/5 rounded-lg border border-dashed border-base-300 mt-2 transition-all"
                                             >
@@ -2022,9 +2016,9 @@ const ChatContainer = () => {
                                                 const isMe = msg.senderId === authUser._id;
                                                 const senderName = isMe ? "Bạn" : selectedUser.fullName;
                                                 const fileStyle = getFileColorAndIcon(msg.file.name);
-                                                
+
                                                 return (
-                                                    <div 
+                                                    <div
                                                         key={msg._id}
                                                         onClick={() => handleJumpToMessage(msg._id)}
                                                         className="flex items-center gap-3 p-2.5 hover:bg-primary/5 rounded-xl border border-base-200/60 cursor-pointer transition-all text-left bg-base-100 shadow-sm hover:shadow group"
@@ -2051,7 +2045,7 @@ const ChatContainer = () => {
 
                                         {/* "Xem thêm" button for fileResults */}
                                         {fileResults.length > 4 && !showAllFileResults && (
-                                            <button 
+                                            <button
                                                 onClick={() => setShowAllFileResults(true)}
                                                 className="w-full text-center py-2 text-xs font-semibold text-primary/80 hover:text-primary hover:bg-primary/5 rounded-lg border border-dashed border-base-300 mt-3 transition-all"
                                             >
@@ -2071,28 +2065,28 @@ const ChatContainer = () => {
                 <div className="fixed inset-0 bg-black/95 backdrop-blur-sm z-[9999] flex flex-col items-center justify-center animate-fade-in select-none">
                     {/* Top Control Bar */}
                     <div className="absolute top-4 right-4 flex items-center gap-3">
-                        <button 
+                        <button
                             onClick={handleRotateLeft}
                             className="btn btn-circle btn-sm bg-zinc-800 border-zinc-700 text-white hover:bg-zinc-700 flex items-center justify-center"
                             title="Xoay trái"
                         >
                             <RotateCcw className="size-4" />
                         </button>
-                        <button 
+                        <button
                             onClick={handleRotateRight}
                             className="btn btn-circle btn-sm bg-zinc-800 border-zinc-700 text-white hover:bg-zinc-700 flex items-center justify-center"
                             title="Xoay phải"
                         >
                             <RotateCw className="size-4" />
                         </button>
-                        <button 
+                        <button
                             onClick={handleDownload}
                             className="btn btn-circle btn-sm bg-zinc-800 border-zinc-700 text-white hover:bg-zinc-700 flex items-center justify-center"
                             title="Tải về"
                         >
                             <Download className="size-4" />
                         </button>
-                        <button 
+                        <button
                             onClick={handleCloseViewer}
                             className="btn btn-circle btn-sm bg-zinc-800 border-zinc-700 text-white hover:bg-zinc-700 flex items-center justify-center"
                             title="Đóng"
@@ -2103,9 +2097,9 @@ const ChatContainer = () => {
 
                     {/* Image Container */}
                     <div className="max-w-[90%] max-h-[80%] flex items-center justify-center overflow-hidden transition-all duration-300">
-                        <img 
-                            src={viewingImage} 
-                            alt="Enlarged view" 
+                        <img
+                            src={viewingImage}
+                            alt="Enlarged view"
                             style={{ transform: `rotate(${rotation}deg)` }}
                             className="max-w-full max-h-[80vh] object-contain rounded shadow-2xl transition-transform duration-200"
                         />
@@ -2120,7 +2114,7 @@ const ChatContainer = () => {
                             <h3 className="font-bold text-base flex items-center gap-2">
                                 <Share2 className="size-5 text-primary" /> Chia sẻ tin nhắn
                             </h3>
-                            <button 
+                            <button
                                 onClick={() => {
                                     setIsForwardModalOpen(false);
                                     setSelectedForwardUsers([]);
@@ -2131,7 +2125,7 @@ const ChatContainer = () => {
                                 <X className="size-4" />
                             </button>
                         </div>
-                        
+
                         <div className="p-3 border-b border-base-300 bg-base-50">
                             <div className="relative flex items-center">
                                 <Search className="size-4 absolute left-3 text-base-content/40" />
@@ -2145,14 +2139,14 @@ const ChatContainer = () => {
                                 />
                             </div>
                         </div>
-                        
+
                         <div className="flex-1 overflow-y-auto max-h-60 p-2 space-y-1">
                             {users
                                 .filter(u => u._id !== authUser._id && u.fullName.toLowerCase().includes(forwardSearchQuery.toLowerCase()))
                                 .map(u => (
                                     <label key={u._id} className="flex items-center gap-3 p-2 hover:bg-base-200/50 rounded-lg cursor-pointer transition-colors">
-                                        <input 
-                                            type="checkbox" 
+                                        <input
+                                            type="checkbox"
                                             className="checkbox checkbox-primary checkbox-sm border-slate-300 rounded"
                                             checked={selectedForwardUsers.includes(u._id)}
                                             onChange={(e) => {
@@ -2171,13 +2165,13 @@ const ChatContainer = () => {
                                 <p className="text-center text-xs text-base-content/40 py-6 italic">Không tìm thấy liên hệ nào</p>
                             )}
                         </div>
-                        
+
                         <div className="p-4 border-t border-base-300 bg-base-200/30 flex items-center justify-between">
                             <div className="text-xs font-semibold text-primary">
                                 {selectedForwardUsers.length > 0 ? `Đã chọn ${selectedForwardUsers.length}` : ""}
                             </div>
                             <div className="flex gap-2">
-                                <button 
+                                <button
                                     onClick={() => {
                                         setIsForwardModalOpen(false);
                                         setSelectedForwardUsers([]);
@@ -2186,7 +2180,7 @@ const ChatContainer = () => {
                                 >
                                     Hủy
                                 </button>
-                                <button 
+                                <button
                                     onClick={handleForwardSelected}
                                     disabled={selectedForwardUsers.length === 0}
                                     className="btn btn-primary btn-sm text-white text-xs font-bold px-6 shadow-sm"
@@ -2207,7 +2201,7 @@ const ChatContainer = () => {
                             <h3 className="font-extrabold text-base flex items-center gap-2 text-primary">
                                 <UserPlus className="size-5 text-primary" /> Thêm thành viên vào nhóm
                             </h3>
-                            <button 
+                            <button
                                 onClick={() => {
                                     setIsAddMemberModalOpen(false);
                                     setSelectedNewMembers([]);
@@ -2259,10 +2253,10 @@ const ChatContainer = () => {
                                             }}
                                             className="flex items-center gap-3 p-2 hover:bg-base-200 border border-transparent hover:border-base-300 rounded-xl cursor-pointer transition-all"
                                         >
-                                            <input 
+                                            <input
                                                 type="checkbox"
                                                 checked={isChecked}
-                                                onChange={() => {}} // handled by parent div
+                                                onChange={() => { }} // handled by parent div
                                                 className="checkbox checkbox-primary checkbox-sm rounded-full flex-shrink-0 pointer-events-none"
                                             />
                                             <img
@@ -2309,7 +2303,7 @@ const ChatContainer = () => {
                             <h3 className="font-extrabold text-base flex items-center gap-2 text-red-600">
                                 <LogOut className="size-5 text-red-500" /> Bàn giao quyền Trưởng nhóm
                             </h3>
-                            <button 
+                            <button
                                 onClick={() => {
                                     setIsLeaveGroupModalOpen(false);
                                     setSelectedNewLeaderId("");
@@ -2359,17 +2353,16 @@ const ChatContainer = () => {
                                         <div
                                             key={mId}
                                             onClick={() => setSelectedNewLeaderId(mId)}
-                                            className={`flex items-center gap-3 p-2 border rounded-xl cursor-pointer transition-all ${
-                                                isSelected 
-                                                    ? "bg-primary/5 border-primary shadow-sm" 
-                                                    : "hover:bg-base-200 border-transparent hover:border-base-300"
-                                            }`}
+                                            className={`flex items-center gap-3 p-2 border rounded-xl cursor-pointer transition-all ${isSelected
+                                                ? "bg-primary/5 border-primary shadow-sm"
+                                                : "hover:bg-base-200 border-transparent hover:border-base-300"
+                                                }`}
                                         >
-                                            <input 
+                                            <input
                                                 type="radio"
                                                 name="newLeader"
                                                 checked={isSelected}
-                                                onChange={() => {}} // handled by parent div click
+                                                onChange={() => { }} // handled by parent div click
                                                 className="radio radio-primary radio-sm flex-shrink-0 pointer-events-none"
                                             />
                                             <img
