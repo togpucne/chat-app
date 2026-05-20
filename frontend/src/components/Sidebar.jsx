@@ -97,7 +97,11 @@ const Sidebar = () => {
     } = useChatStore();
 
     const { onlineUsers, authUser, acceptFriendRequest, rejectFriendRequest } = useAuthStore();
-    const onlineFriendsCount = onlineUsers.filter(id => authUser?.friends?.includes(id)).length;
+    const onlineFriendsCount = users.filter(u => 
+        !u.isGroup && 
+        !u.isDocuments && 
+        onlineUsers.includes(u._id)
+    ).length;
     const [showOnlineOnly, setShowOnlineOnly] = useState(false);
     const [pinnedToggle, setPinnedToggle] = useState(false);
     const [ticker, setTicker] = useState(0);
