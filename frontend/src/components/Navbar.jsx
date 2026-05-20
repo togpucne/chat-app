@@ -27,13 +27,13 @@ const Navbar = () => {
             </Link>
           </div>
           {/*  */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <Link
               to="/settings"
-              className="btn btn-sm gap-2 transition-colors"
+              className="btn btn-sm btn-ghost sm:btn-outline gap-2 transition-colors px-2 sm:px-3"
             >
               <Settings className="w-4 h-4" />
-              <span className="hidden sm:inline">Cài đặt</span>
+              <span className="hidden md:inline">Cài đặt</span>
             </Link>
 
 
@@ -41,26 +41,26 @@ const Navbar = () => {
               <>
                 <Link
                   to="/ai-chat"
-                  className="btn btn-sm gap-2"
+                  className="btn btn-sm btn-ghost sm:btn-outline gap-2 px-2 sm:px-3"
                 >
                   <Bot className="size-5" />
-                  <span className="hidden sm:inline">Trợ lý AI</span>
+                  <span className="hidden md:inline">Trợ lý AI</span>
                 </Link>
 
                 <Link
                   to="/profile"
-                  className="btn btn-sm gap-2"
+                  className="btn btn-sm btn-ghost sm:btn-outline gap-2 px-2 sm:px-3"
                 >
                   <User className="size-5" />
-                  <span className="hidden sm:inline">Hồ sơ</span>
+                  <span className="hidden md:inline">Hồ sơ</span>
                 </Link>
 
                 <button
-                  className="flex gap-2 items-center"
+                  className="btn btn-sm btn-ghost sm:text-error gap-2 px-2 sm:px-3 flex items-center"
                   onClick={logout}
                 >
                   <LogOut className="size-5" />
-                  <span className="hidden sm:inline">Đăng xuất</span>
+                  <span className="hidden md:inline">Đăng xuất</span>
                 </button>
               </>
             )}

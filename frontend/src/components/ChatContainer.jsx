@@ -91,22 +91,22 @@ const renderFormattedText = (text, searchQuery = "") => {
             .replace(/>/g, "&gt;");
 
         // Định dạng Bold & Italic kép: ***text*** hoặc ___text___
-        escaped = escaped.replace(/\*\*\*(.*?)\*\*\*/g, "<strong><em>$1</em></strong>");
-        escaped = escaped.replace(/___(.*?)___/g, "<strong><em>$1</em></strong>");
+        escaped = escaped.replace(/\*\*\*([\s\S]*?)\*\*\*/g, "<strong><em>$1</em></strong>");
+        escaped = escaped.replace(/___([\s\S]*?)___/g, "<strong><em>$1</em></strong>");
 
         // Định dạng Bold: **text** hoặc __text__
-        escaped = escaped.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-        escaped = escaped.replace(/__(.*?)__/g, "<strong>$1</strong>");
+        escaped = escaped.replace(/\*\*([\s\S]*?)\*\*/g, "<strong>$1</strong>");
+        escaped = escaped.replace(/__([\s\S]*?)__/g, "<strong>$1</strong>");
 
         // Định dạng Italic: *text* hoặc _text_
-        escaped = escaped.replace(/\*(.*?)\*/g, "<em>$1</em>");
-        escaped = escaped.replace(/_(.*?)_/g, "<em>$1</em>");
+        escaped = escaped.replace(/\*([\s\S]*?)\*/g, "<em>$1</em>");
+        escaped = escaped.replace(/_([\s\S]*?)_/g, "<em>$1</em>");
 
         // Định dạng Strikethrough: ~~text~~
-        escaped = escaped.replace(/~~(.*?)~~/g, "<del>$1</del>");
+        escaped = escaped.replace(/~~([\s\S]*?)~~/g, "<del>$1</del>");
 
         // Định dạng Inline code: `text`
-        escaped = escaped.replace(/`(.*?)`/g, "<code class='bg-base-300/85 px-1.5 py-0.5 rounded font-mono text-[11px] text-secondary-content'>$1</code>");
+        escaped = escaped.replace(/`([\s\S]*?)`/g, "<code class='bg-base-300/85 px-1.5 py-0.5 rounded font-mono text-[11px] text-secondary-content'>$1</code>");
 
         // Convert URLs starting with http:// or https:// to clickable blue links
         escaped = escaped.replace(/(https?:\/\/[^\s<]+)/gi, "<a href='$1' target='_blank' rel='noopener noreferrer' class='text-[#0068ff] font-semibold hover:underline break-all'>$1</a>");
@@ -620,7 +620,7 @@ const ChatContainer = () => {
     const hasReceivedRequest = authUser?.friendRequests?.includes(selectedUser?._id);
 
     return (
-        <div className="flex-1 flex overflow-hidden bg-base-100">
+        <div className="flex-1 flex overflow-hidden bg-base-100 relative">
             {/* Left Area: Main Chat Flow */}
             <div className="flex-1 flex flex-col overflow-hidden relative border-r border-base-300">
                 <ChatHeader
@@ -1318,16 +1318,16 @@ const ChatContainer = () => {
 
             {/* Zalo Info Right Sidebar Panel */}
             {isSidebarOpen && (
-                <div className="w-80 bg-base-100 flex-shrink-0 flex flex-col overflow-y-auto z-20 shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.05)] select-none animate-slide-left">
+                <div className="w-full lg:w-80 absolute lg:static top-0 right-0 h-full bg-base-100 flex-shrink-0 flex flex-col overflow-y-auto z-30 shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.05)] select-none animate-slide-left">
                     {/* Header with Title and Close Button */}
                     <div className="p-4 border-b border-base-300 flex items-center justify-between bg-base-100 sticky top-0 z-10">
                         <h3 className="font-extrabold text-xs text-base-content/80 uppercase tracking-wider">Thông tin hội thoại</h3>
                         <button
                             onClick={() => setIsSidebarOpen(false)}
-                            className="btn btn-ghost btn-circle btn-xs text-base-content/65 hover:text-base-content hover:bg-base-200 transition-colors flex items-center justify-center size-6"
+                            className="btn btn-ghost btn-circle btn-sm text-base-content/70 hover:text-base-content hover:bg-base-200 transition-colors flex items-center justify-center"
                             title="Đóng thông tin"
                         >
-                            <X className="size-4" />
+                            <X className="size-6" />
                         </button>
                     </div>
 
@@ -1870,7 +1870,7 @@ const ChatContainer = () => {
 
             {/* Zalo Search Right Sidebar Panel */}
             {isSearchOpen && (
-                <div className="w-80 bg-base-100 flex-shrink-0 flex flex-col border-l border-base-300 overflow-hidden z-20 shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.05)] select-none animate-slide-left">
+                <div className="w-full lg:w-80 absolute lg:static top-0 right-0 h-full bg-base-100 flex-shrink-0 flex flex-col border-l border-base-300 overflow-hidden z-30 shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.05)] select-none animate-slide-left">
                     {/* Header */}
                     <div className="p-4 border-b border-base-300 flex items-center justify-between bg-base-200/50 sticky top-0 z-10 backdrop-blur-md">
                         <h3 className="font-bold text-sm text-base-content flex items-center gap-1.5">
@@ -1884,9 +1884,9 @@ const ChatContainer = () => {
                                 setShowAllTextResults(false);
                                 setShowAllFileResults(false);
                             }}
-                            className="btn btn-ghost btn-circle btn-xs text-base-content/60 hover:text-base-content"
+                            className="btn btn-ghost btn-circle btn-sm text-base-content/70 hover:text-base-content hover:bg-base-200 transition-colors"
                         >
-                            <X className="size-4" />
+                            <X className="size-6" />
                         </button>
                     </div>
 

@@ -1,4 +1,4 @@
-import { X, Search, Info, UserPlus, Loader2, UserMinus, Phone, Video, MessageSquare, LogOut, Pencil, Globe, FileText, Link2, Camera, Target } from "lucide-react";
+import { X, Search, Info, UserPlus, Loader2, UserMinus, Phone, Video, MessageSquare, LogOut, Pencil, Globe, FileText, Link2, Camera, Target, ArrowLeft } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useAuthStore } from "../store/useAuthStore";
@@ -104,6 +104,15 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                 </div>
             )}
             <div className="flex items-center justify-between">
+                {/* Mobile Back Button to Dashboard */}
+                <button
+                    onClick={() => setSelectedUser(null)}
+                    className="lg:hidden btn btn-ghost btn-circle btn-sm mr-2 flex items-center justify-center hover:bg-base-200 transition-colors"
+                    title="Quay lại danh sách chat"
+                >
+                    <ArrowLeft className="size-6" />
+                </button>
+
                 {/* Clickable Info Area */}
                 <div
                     onClick={() => setIsInfoModalOpen(true)}

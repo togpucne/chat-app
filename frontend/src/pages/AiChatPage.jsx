@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, Loader2, Sparkles } from "lucide-react";
+import { Send, Bot, Loader2, Sparkles, ArrowLeft } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
+import { useNavigate } from "react-router-dom";
 import { axiosInstance } from "../lib/axios";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -13,6 +14,7 @@ const AiChatPage = () => {
       text: "Chào buổi chiều nha, mình là Trợ lý AI. Mình có thể giúp gì cho bạn hôm nay?",
     }
   ]);
+  const navigate = useNavigate();
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
@@ -72,12 +74,19 @@ const AiChatPage = () => {
   };
 
   return (
-    <div className="h-screen pt-20 px-4 bg-base-200">
-      <div className="flex justify-center h-[calc(100vh-6rem)]">
-        <div className="bg-base-100 rounded-lg shadow-xl w-full max-w-4xl flex flex-col overflow-hidden">
+    <div className="h-[100dvh] pt-16 sm:pt-20 sm:px-4 bg-base-200 flex flex-col">
+      <div className="flex justify-center flex-1 h-[calc(100dvh-4rem)] sm:h-[calc(100dvh-6rem)]">
+        <div className="bg-base-100 sm:rounded-lg sm:shadow-xl w-full max-w-4xl flex flex-col overflow-hidden border-t sm:border-t-0 border-base-300">
           
           {/* Header */}
-          <div className="bg-base-100 border-b border-base-300 p-4 shrink-0 flex gap-3 items-center">
+          <div className="bg-base-100 border-b border-base-300 p-4 shrink-0 flex gap-3 items-center relative pl-12">
+            <button 
+              onClick={() => navigate(-1)}
+              className="absolute left-2 btn btn-ghost btn-circle btn-sm flex items-center justify-center hover:bg-base-200"
+              title="Quay lại"
+            >
+              <ArrowLeft className="size-5" />
+            </button>
             <div className="avatar">
               <div className="w-10 rounded-full border border-primary/30 p-1 flex items-center justify-center bg-primary/10">
                 <Bot className="w-6 h-6 text-primary" />
@@ -109,7 +118,7 @@ const AiChatPage = () => {
                       onClick={() => handleSendMessage(suggestion)}
                       className="w-full bg-base-200 hover:bg-base-300 transition-colors p-3 rounded-xl text-left border border-base-300 shadow-sm flex items-center gap-3"
                     >
-                      <Sparkles className="w-4 h-4 text-base-content/50" />
+                      <Sparkles className="w-4 h-4 text-base-content/50 shrink-0" />
                       <span className="text-sm font-medium">{suggestion}</span>
                     </button>
                   ))}

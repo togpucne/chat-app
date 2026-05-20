@@ -219,8 +219,8 @@ const Sidebar = () => {
     }
 
     return (
-        <aside className="h-full w-20 lg:w-72 border-r border-base-300
-            flex flex-col transition-all duration-200 select-none">
+        <aside className="h-full w-full border-r border-base-300
+            flex flex-col transition-all duration-200 select-none bg-base-100">
             <div className="border-b border-base-300 w-full p-4">
                 <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -244,11 +244,10 @@ const Sidebar = () => {
                 <div className="flex gap-2">
                     <button 
                         onClick={() => setIsPhoneModalOpen(true)}
-                        className="flex-1 btn btn-sm btn-outline border-base-300 hover:border-primary hover:bg-primary/5 hover:text-primary text-xs flex items-center justify-start gap-2 shadow-sm font-normal rounded-lg transition-all"
+                        className="flex-1 btn btn-sm btn-outline border-base-300 hover:border-primary hover:bg-primary/5 hover:text-primary text-xs flex items-center justify-start gap-2 shadow-sm font-normal rounded-lg transition-all min-w-0"
                     >
                         <Search className="size-3.5 text-base-content/60 flex-shrink-0" />
-                        <span className="truncate lg:block hidden">Tìm bạn qua số ĐT...</span>
-                        <span className="truncate lg:hidden block">Tìm</span>
+                        <span className="truncate block">Tìm bạn qua số ĐT...</span>
                     </button>
                     <button
                         onClick={() => {
@@ -344,7 +343,7 @@ const Sidebar = () => {
                                 </div>
 
                                 {/* User Info */}
-                                <div className="hidden lg:flex items-center justify-between text-left min-w-0 flex-1">
+                                <div className="flex items-center justify-between text-left min-w-0 flex-1">
                                     <div className="min-w-0 flex-1">
                                         <div className="font-semibold text-sm text-base-content truncate flex items-center gap-1.5">
                                             <span className="truncate">{user.fullName}</span>

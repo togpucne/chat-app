@@ -1,6 +1,7 @@
 import { THEMES } from "../constants/index.js";
 import { useThemeStore } from "../store/useThemeStore.js";
-import { Send } from "lucide-react";
+import { Send, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const PREVIEW_MESSAGES = [
   { id: 1, content: "Hello bạn, khỏe không?", isSent: false },
@@ -13,13 +14,21 @@ const PREVIEW_MESSAGES = [
 
 
 const SettingsPage = () => {
+  const navigate = useNavigate();
   const { theme, setTheme } = useThemeStore();
 
   return (
 
-    <div className="min-h-screen container mx-auto px-4 pt-20 pb-10 max-w-5xl">
+    <div className="min-h-[100dvh] container mx-auto px-4 pt-20 pb-10 max-w-5xl">
       <div className="space-y-6">
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 relative pl-10">
+          <button 
+            onClick={() => navigate(-1)}
+            className="absolute -left-2 top-0 btn btn-ghost btn-circle btn-sm flex items-center justify-center hover:bg-base-200"
+            title="Quay lại"
+          >
+            <ArrowLeft className="size-5" />
+          </button>
           <h2 className="text-lg font-semibold">Chủ đề</h2>
           <p className="text-sm text-base-content/70">Chọn chủ đề cho giao diện của bạn</p>
         </div>
