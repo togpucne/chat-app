@@ -2,36 +2,40 @@
 
 A full-stack, real-time messaging application engineered with a decoupled architecture using the MERN stack (MongoDB, Express, React, Node.js). The project focuses on robust client-side state management, persistent bidirectional communications, secure authentication sessions, and cloud-hosted media optimization.
 
+🚀 **Live demo:** [https://chat-app-8kcw.onrender.com/](https://chat-app-8kcw.onrender.com/)
+
 ---
 
 ## Technical Highlights & Architecture
 
-*   **Persistent Real-Time Sync**: Configured with Socket.io to establish persistent, low-latency WebSocket connections for instant message transmission and active user presence tracking.
-*   **Performance-Optimized State**: Managed client-side state using Zustand stores, ensuring predictable unidirectional data flows and optimized rendering cycles without the boilerplate of Redux.
-*   **Secure Session Persistence**: Implemented cookie-based JSON Web Tokens (JWT) for secure session persistence, coupled with custom Express middleware for routing protection and bcryptjs for server-side password hashing.
-*   **Cloud Media Hosting**: Integrated Cloudinary SDK to handle base64 image uploads, offloading storage and processing overhead from the application server.
-*   **Dynamic Theme Compiler**: Styled with TailwindCSS and DaisyUI, supporting 30+ persisted theme configurations handled via a central React theme provider and stored locally.
-*   **Network Resilience**: Imconfigured connection resilience strategies in Mongoose (using IPv4 resolution) and Express (custom DNS resolution arrays) to address unstable ISP database connections.
+* **Persistent Real-Time Sync**: Configured with Socket.io to establish persistent, low-latency WebSocket connections for instant message transmission and active user presence tracking.
+* **Performance-Optimized State**: Managed client-side state using Zustand stores, ensuring predictable unidirectional data flows and optimized rendering cycles without the boilerplate of Redux.
+* **Secure Session Persistence**: Implemented cookie-based JSON Web Tokens (JWT) for secure session persistence, coupled with custom Express middleware for routing protection and bcryptjs for server-side password hashing.
+* **Cloud Media Hosting**: Integrated Cloudinary SDK to handle base64 image uploads, offloading storage and processing overhead from the application server.
+* **Dynamic Theme Compiler**: Styled with TailwindCSS and DaisyUI, supporting 30+ persisted theme configurations handled via a central React theme provider and stored locally.
+* **Network Resilience**: Imconfigured connection resilience strategies in Mongoose (using IPv4 resolution) and Express (custom DNS resolution arrays) to address unstable ISP database connections.
 
 ---
 
 ## Technology Stack
 
 ### Backend
-*   **Runtime Environment**: Node.js (ES Modules)
-*   **Web Framework**: Express 5
-*   **Database Engine**: MongoDB & Mongoose ORM
-*   **Real-time Communication**: Socket.io
-*   **Media Hosting & CDN**: Cloudinary
-*   **Security & Encryption**: bcryptjs, jsonwebtoken, cookie-parser
+
+* **Runtime Environment**: Node.js (ES Modules)
+* **Web Framework**: Express 5
+* **Database Engine**: MongoDB & Mongoose ORM
+* **Real-time Communication**: Socket.io
+* **Media Hosting & CDN**: Cloudinary
+* **Security & Encryption**: bcryptjs, jsonwebtoken, cookie-parser
 
 ### Frontend
-*   **Core Library**: React 19 (Vite)
-*   **State Management**: Zustand
-*   **Routing**: React Router 7
-*   **Styling**: TailwindCSS & DaisyUI
-*   **Icons & Toast Notifications**: Lucide React, React Hot Toast
-*   **HTTP Client**: Axios
+
+* **Core Library**: React 19 (Vite)
+* **State Management**: Zustand
+* **Routing**: React Router 7
+* **Styling**: TailwindCSS & DaisyUI
+* **Icons & Toast Notifications**: Lucide React, React Hot Toast
+* **HTTP Client**: Axios
 
 ---
 
@@ -68,11 +72,13 @@ judo_chat/
 ## Setup and Installation
 
 ### Prerequisites
-*   Node.js (v16+)
-*   MongoDB Instance (Local database or MongoDB Atlas cloud URI)
-*   Cloudinary Account
+
+* Node.js (v16+)
+* MongoDB Instance (Local database or MongoDB Atlas cloud URI)
+* Cloudinary Account
 
 ### 1. Backend Configuration
+
 1. Navigate to the backend directory:
    ```bash
    cd backend
@@ -101,6 +107,7 @@ judo_chat/
    ```
 
 ### 2. Frontend Configuration
+
 1. Navigate to the frontend directory:
    ```bash
    cd ../frontend
@@ -121,23 +128,24 @@ judo_chat/
 
 ### Authentication `/api/auth`
 
-| Method | Endpoint | Description | Auth Required |
-| :--- | :--- | :--- | :---: |
-| **POST** | `/api/auth/signup` | Creates a new user profile in the database | No |
-| **POST** | `/api/auth/login` | Authenticates credentials and issues a cookie-based JWT | No |
-| **POST** | `/api/auth/logout` | Revokes cookie token and clears the user session | No |
-| **PUT** | `/api/auth/update-profile` | Uploads and updates the user avatar via Cloudinary | Yes |
-| **GET** | `/api/auth/check` | Validates current token state on client bootstrapper | Yes |
+| Method         | Endpoint                     | Description                                             | Auth Required |
+| :------------- | :--------------------------- | :------------------------------------------------------ | :-----------: |
+| **POST** | `/api/auth/signup`         | Creates a new user profile in the database              |      No      |
+| **POST** | `/api/auth/login`          | Authenticates credentials and issues a cookie-based JWT |      No      |
+| **POST** | `/api/auth/logout`         | Revokes cookie token and clears the user session        |      No      |
+| **PUT**  | `/api/auth/update-profile` | Uploads and updates the user avatar via Cloudinary      |      Yes      |
+| **GET**  | `/api/auth/check`          | Validates current token state on client bootstrapper    |      Yes      |
 
 ### Messages `/api/messages`
 
-| Method | Endpoint | Description | Auth Required |
-| :--- | :--- | :--- | :---: |
-| **GET** | `/api/messages/users` | Retrieves list of users for sidebar navigation | Yes |
-| **GET** | `/api/messages/:id` | Retrieves chat message logs between two specific users | Yes |
-| **POST** | `/api/messages/send/:id` | Posts a message (supports text and base64 images) | Yes |
+| Method         | Endpoint                   | Description                                            | Auth Required |
+| :------------- | :------------------------- | :----------------------------------------------------- | :-----------: |
+| **GET**  | `/api/messages/users`    | Retrieves list of users for sidebar navigation         |      Yes      |
+| **GET**  | `/api/messages/:id`      | Retrieves chat message logs between two specific users |      Yes      |
+| **POST** | `/api/messages/send/:id` | Posts a message (supports text and base64 images)      |      Yes      |
 
 ---
 
 ## License
+
 This project is licensed under the ISC License.
