@@ -61,7 +61,7 @@ export const useChatStore = create((set, get) => ({
             set({ users: res.data, unreadCounts: counts });
             persistUnreadCounts(counts);
         } catch (error) {
-            toast.error(error.response.data.message);
+            toast.error(error.response?.data?.message || "Lỗi kết nối máy chủ");
         } finally {
             set({ isUsersLoading: false });
         }
@@ -89,7 +89,7 @@ export const useChatStore = create((set, get) => ({
                 socket.emit("userOpenedChat", { openerId: authUser._id, recipientId: userId });
             }
         } catch (error) {
-            toast.error(error.response.data.message);
+            toast.error(error.response?.data?.message || "Lỗi tải tin nhắn");
         } finally {
             set({ isMessagesLoading: false });
         }
@@ -136,7 +136,7 @@ export const useChatStore = create((set, get) => ({
                 users: updatedUsers
             });
         } catch (error) {
-            toast.error(error.response.data.message);
+            toast.error(error.response?.data?.message || "Lỗi gửi tin nhắn");
         }
     },
 
@@ -1086,6 +1086,8 @@ export const useChatStore = create((set, get) => ({
                 set({ unreadCounts: counts });
                 persistUnreadCounts(counts);
             }
+            const socket = useAuthStore.getState().socket;
+            const authUser = useAuthStore.getState().authUser;
             if (socket && authUser) {
                 socket.emit("userOpenedChat", { openerId: authUser._id, recipientId: selectedUser._id });
             }
@@ -1134,7 +1136,7 @@ export const useChatStore = create((set, get) => ({
                 set({ users: updatedUsers });
             }
         } catch (error) {
-            console.error("Failed to log missed call:", error);
+            console.error("Failed to log completed call:", error);
         }
     },
 

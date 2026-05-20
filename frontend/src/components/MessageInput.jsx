@@ -399,21 +399,21 @@ const MessageInput = () => {
                             setEmojiOpen(!emojiOpen);
                             setFormatOpen(false);
                         }}
-                        className={`w-7 h-7 flex items-center justify-center rounded hover:bg-base-200 text-slate-600 hover:text-primary transition-colors ${emojiOpen ? "bg-primary/10 text-primary hover:bg-primary/20" : ""}`}
+                        className={`w-7 h-7 flex items-center justify-center rounded hover:bg-base-200 text-slate-600 hover:text-primary transition-colors outline-none focus:outline-none ${emojiOpen ? "bg-primary/10 text-primary hover:bg-primary/20" : ""}`}
                         title="Chọn biểu cảm"
                     >
-                        <Smile className="size-4" />
+                        <Smile className="size-[18px]" />
                     </button>
 
                     {/* Emoji Dropdown Picker */}
                     {emojiOpen && (
-                        <div className="absolute left-0 bottom-8 bg-base-200 border border-base-300 p-2 rounded-lg shadow-xl grid grid-cols-6 gap-1 w-44 z-[40] animate-scale-in">
+                        <div className="absolute left-0 bottom-10 bg-white/95 backdrop-blur-md border border-slate-200 p-3 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] grid grid-cols-6 gap-2 w-52 z-[100] animate-scale-up select-none">
                             {emojis.map((emoji) => (
                                 <button
                                     key={emoji}
                                     type="button"
                                     onClick={() => insertEmoji(emoji)}
-                                    className="text-lg hover:bg-base-300 rounded p-1 text-center transition-colors"
+                                    className="text-xl hover:bg-slate-100 rounded-xl p-1.5 text-center transition-all hover:scale-125 active:scale-90"
                                 >
                                     {emoji}
                                 </button>
@@ -426,20 +426,20 @@ const MessageInput = () => {
                 <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-7 h-7 flex items-center justify-center rounded hover:bg-base-200 text-slate-600 hover:text-primary transition-colors"
+                    className="w-7 h-7 flex items-center justify-center rounded hover:bg-base-200 text-slate-600 hover:text-primary transition-colors outline-none focus:outline-none"
                     title="Gửi hình ảnh"
                 >
-                    <Image className="size-4" />
+                    <Image className="size-[18px]" />
                 </button>
 
                 {/* Send File document */}
                 <button
                     type="button"
                     onClick={() => docInputRef.current?.click()}
-                    className="w-7 h-7 flex items-center justify-center rounded hover:bg-base-200 text-slate-600 hover:text-primary transition-colors"
+                    className="w-7 h-7 flex items-center justify-center rounded hover:bg-base-200 text-slate-600 hover:text-primary transition-colors outline-none focus:outline-none"
                     title="Đính kèm tệp tài liệu"
                 >
-                    <Paperclip className="size-4" />
+                    <Paperclip className="size-[18px]" />
                 </button>
 
                 {/* Formatter bar toggle */}
@@ -449,10 +449,10 @@ const MessageInput = () => {
                         setFormatOpen(!formatOpen);
                         setEmojiOpen(false);
                     }}
-                    className={`w-7 h-7 flex items-center justify-center rounded hover:bg-base-200 text-slate-600 hover:text-primary transition-colors ${formatOpen ? "bg-primary/10 text-primary hover:bg-primary/20" : ""}`}
+                    className={`w-7 h-7 flex items-center justify-center rounded hover:bg-base-200 text-slate-600 hover:text-primary transition-colors outline-none focus:outline-none ${formatOpen ? "bg-primary/10 text-primary hover:bg-primary/20" : ""}`}
                     title="Định dạng tin nhắn"
                 >
-                    <Type className="size-4" />
+                    <Type className="size-[18px]" />
                 </button>
             </div>
 
@@ -501,10 +501,10 @@ const MessageInput = () => {
                                 setEmojiOpen(!emojiOpen);
                                 setFormatOpen(false);
                             }}
-                            className="text-base-content/50 hover:text-base-content btn btn-ghost btn-circle btn-xs flex items-center justify-center"
+                            className="text-base-content/50 hover:text-primary btn btn-ghost btn-circle btn-xs flex items-center justify-center outline-none focus:outline-none"
                             title="Chọn biểu cảm"
                         >
-                            <Smile className="size-4 sm:size-5" />
+                            <Smile className="size-5 sm:size-[22px]" />
                         </button>
                     </div>
                 </div>

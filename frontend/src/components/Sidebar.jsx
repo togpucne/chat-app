@@ -463,7 +463,11 @@ const Sidebar = () => {
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 font-bold text-sm text-base-content group-hover:text-primary transition-colors truncate">
                                             <span className="truncate">{foundUser.fullName}</span>
-                                            <span className="bg-slate-200 text-slate-700 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase flex-shrink-0">Người lạ</span>
+                                            {authUser?.friends?.some(f => (typeof f === 'object' ? f._id : f) === foundUser._id) ? (
+                                                <span className="bg-green-100 text-green-700 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase flex-shrink-0">Bạn bè</span>
+                                            ) : (
+                                                <span className="bg-slate-200 text-slate-700 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase flex-shrink-0">Người lạ</span>
+                                            )}
                                         </div>
                                         <p className="text-xs text-base-content/60 mt-0.5 truncate">Số điện thoại: <span className="font-semibold text-primary">{foundUser.phoneNumber || phoneQuery}</span></p>
                                     </div>
