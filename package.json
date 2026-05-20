@@ -1,0 +1,22 @@
+{
+  "name": "judo_chat",
+  "version": "1.0.0",
+  "description": "A full-stack, real-time messaging application engineered with a decoupled architecture using the MERN stack (MongoDB, Express, React, Node.js). The project focuses on robust client-side state management, persistent bidirectional communications, secure authentication sessions, and cloud-hosted media optimization.",
+  "main": "index.js",
+  "scripts": {
+    "build": "npm install --prefix backend && npm install --prefix frontend && npm install --prefix frontend",
+    "start": "npm run start --prefix backend"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/togpucne/chat-app.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/togpucne/chat-app/issues"
+  },
+  "homepage": "https://github.com/togpucne/chat-app#readme"
+}
