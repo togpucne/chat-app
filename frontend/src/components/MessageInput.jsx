@@ -1,14 +1,14 @@
 import { useRef, useState, useEffect } from "react";
 import { useChatStore } from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
-import { 
-    Image, 
-    Send, 
-    X, 
-    Quote, 
-    Smile, 
-    Paperclip, 
-    Type, 
+import {
+    Image,
+    Send,
+    X,
+    Quote,
+    Smile,
+    Paperclip,
+    Type,
     ThumbsUp,
     Loader2
 } from "lucide-react";
@@ -30,7 +30,7 @@ const MessageInput = () => {
     const { authUser } = useAuthStore();
     const isDocuments = selectedUser?.isDocuments;
 
-    const emojis = ["😀", "😂", "🤣", "❤️", "👍", "😍", "😘", "😭", "🙏", "🎉", "🔥", "🙌", "👏", "💩", "😎", "🤩", "😮", "😡"];
+    const emojis = ["😀", "😂", "🤣", "❤️", "👍", "😍", "😘", "😭", "🙏", "🎉", "🔥", "🙌", "👏", "💩", "😎", "🤩", "😮", "😡", "🌹", "💐", "🎂", "🖕", "🍡", "🗿"];
 
     const typingTimeoutRef = useRef(null);
     const isTypingRef = useRef(false);
@@ -57,8 +57,8 @@ const MessageInput = () => {
 
         if (!isTypingRef.current) {
             isTypingRef.current = true;
-            socket.emit("typing", { 
-                recipientId: selectedUser._id, 
+            socket.emit("typing", {
+                recipientId: selectedUser._id,
                 isTyping: true,
                 isGroup: !!selectedUser.isGroup,
                 senderName: authUser?.fullName
@@ -71,8 +71,8 @@ const MessageInput = () => {
 
         typingTimeoutRef.current = setTimeout(() => {
             isTypingRef.current = false;
-            socket.emit("typing", { 
-                recipientId: selectedUser._id, 
+            socket.emit("typing", {
+                recipientId: selectedUser._id,
                 isTyping: false,
                 isGroup: !!selectedUser.isGroup,
                 senderName: authUser?.fullName
@@ -135,7 +135,7 @@ const MessageInput = () => {
 
     const handleSendMessage = async (e) => {
         if (e) e.preventDefault();
-        
+
         // Clear typing state immediately on send
         if (isTypingRef.current) {
             isTypingRef.current = false;
@@ -147,7 +147,7 @@ const MessageInput = () => {
         if (typingTimeoutRef.current) {
             clearTimeout(typingTimeoutRef.current);
         }
-        
+
         // Lấy nội dung từ thẻ contenteditable
         const currentHtml = inputRef.current ? inputRef.current.innerHTML : "";
         let cleanText = currentHtml.trim();
@@ -245,10 +245,10 @@ const MessageInput = () => {
         if (!input) return;
 
         input.focus();
-        
+
         // Chèn văn bản trực tiếp vào vị trí con trỏ hiện tại
         document.execCommand("insertText", false, emoji);
-        
+
         setText(input.innerHTML);
         setEmojiOpen(false);
     };
@@ -268,7 +268,7 @@ const MessageInput = () => {
 
     return (
         <div className="p-4 w-full border-t border-base-300 bg-base-100/50 backdrop-blur-md relative">
-            
+
             {/* Reply Preview Box */}
             {replyingTo && (
                 <div className="mb-2.5 bg-base-200/60 rounded-lg p-2.5 flex items-center justify-between border-l-4 border-primary/80 animate-fade-in relative">
@@ -393,18 +393,18 @@ const MessageInput = () => {
             <div className="flex items-center gap-2 mb-2 pb-1 border-b border-base-200/50 text-slate-500/80 relative select-none">
                 {/* Emoji Smile */}
                 <div className="relative">
-                    <button 
-                        type="button" 
+                    <button
+                        type="button"
                         onClick={() => {
                             setEmojiOpen(!emojiOpen);
                             setFormatOpen(false);
-                        }} 
-                        className={`w-7 h-7 flex items-center justify-center rounded hover:bg-base-200 text-slate-600 hover:text-primary transition-colors ${emojiOpen ? "bg-primary/10 text-primary hover:bg-primary/20" : ""}`} 
+                        }}
+                        className={`w-7 h-7 flex items-center justify-center rounded hover:bg-base-200 text-slate-600 hover:text-primary transition-colors ${emojiOpen ? "bg-primary/10 text-primary hover:bg-primary/20" : ""}`}
                         title="Chọn biểu cảm"
                     >
                         <Smile className="size-4" />
                     </button>
-                    
+
                     {/* Emoji Dropdown Picker */}
                     {emojiOpen && (
                         <div className="absolute left-0 bottom-8 bg-base-200 border border-base-300 p-2 rounded-lg shadow-xl grid grid-cols-6 gap-1 w-44 z-[40] animate-scale-in">
@@ -423,33 +423,33 @@ const MessageInput = () => {
                 </div>
 
                 {/* Send Image */}
-                <button 
-                    type="button" 
-                    onClick={() => fileInputRef.current?.click()} 
-                    className="w-7 h-7 flex items-center justify-center rounded hover:bg-base-200 text-slate-600 hover:text-primary transition-colors" 
+                <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-7 h-7 flex items-center justify-center rounded hover:bg-base-200 text-slate-600 hover:text-primary transition-colors"
                     title="Gửi hình ảnh"
                 >
                     <Image className="size-4" />
                 </button>
 
                 {/* Send File document */}
-                <button 
-                    type="button" 
-                    onClick={() => docInputRef.current?.click()} 
-                    className="w-7 h-7 flex items-center justify-center rounded hover:bg-base-200 text-slate-600 hover:text-primary transition-colors" 
+                <button
+                    type="button"
+                    onClick={() => docInputRef.current?.click()}
+                    className="w-7 h-7 flex items-center justify-center rounded hover:bg-base-200 text-slate-600 hover:text-primary transition-colors"
                     title="Đính kèm tệp tài liệu"
                 >
                     <Paperclip className="size-4" />
                 </button>
 
                 {/* Formatter bar toggle */}
-                <button 
-                    type="button" 
+                <button
+                    type="button"
                     onClick={() => {
                         setFormatOpen(!formatOpen);
                         setEmojiOpen(false);
-                    }} 
-                    className={`w-7 h-7 flex items-center justify-center rounded hover:bg-base-200 text-slate-600 hover:text-primary transition-colors ${formatOpen ? "bg-primary/10 text-primary hover:bg-primary/20" : ""}`} 
+                    }}
+                    className={`w-7 h-7 flex items-center justify-center rounded hover:bg-base-200 text-slate-600 hover:text-primary transition-colors ${formatOpen ? "bg-primary/10 text-primary hover:bg-primary/20" : ""}`}
                     title="Định dạng tin nhắn"
                 >
                     <Type className="size-4" />
@@ -458,7 +458,7 @@ const MessageInput = () => {
 
             <form onSubmit={handleSendMessage} className="flex items-center gap-2">
                 <div className="flex-1 flex gap-2 relative min-w-0">
-                    
+
                     {/* WYSIWYG ContentEditable Rich Text Area - EXACTLY like Zalo PC! */}
                     <div
                         ref={inputRef}
@@ -476,7 +476,7 @@ const MessageInput = () => {
                             }
                         }}
                     />
-                    
+
                     {/* Hidden Inputs */}
                     <input
                         type="file"
