@@ -9,12 +9,12 @@ import { GroupAvatar } from "./GroupAvatar";
 const formatLastActive = (updatedAt, isOnline) => {
     if (isOnline) return "Đang hoạt động";
     if (!updatedAt) return "offline";
-    
+
     const diffMs = Date.now() - new Date(updatedAt).getTime();
     const diffMins = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    
+
     if (diffMins < 1) return "Vừa mới truy cập";
     if (diffMins < 60) return `Truy cập ${diffMins} phút trước`;
     if (diffHours < 24) return `Truy cập ${diffHours} giờ trước`;
@@ -25,7 +25,7 @@ const formatLastActive = (updatedAt, isOnline) => {
 const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOpen, onOpenAddMember }) => {
     const { selectedUser, setSelectedUser, leaveGroup, messages, updateGroup, initiateCall, groupCalls, joinGroupCall, activeCall, isCreateCallModalOpen, setCreateCallModalOpen } = useChatStore();
     const { onlineUsers, authUser, unfriend } = useAuthStore();
-    
+
     const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
     const [isUploadingGroupPic, setIsUploadingGroupPic] = useState(false);
     const groupPicInputRef = useRef(null);
@@ -40,7 +40,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
         }, 15000);
         return () => clearInterval(interval);
     }, []);
-    
+
     const handleGroupPicChange = async (e) => {
         const file = e.target.files?.[0];
         if (!file || !selectedUser?.isGroup) return;
@@ -77,9 +77,9 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
 
     const onlineMemberCount = isGroup
         ? (selectedUser?.members || []).filter((m) => {
-              const id = (typeof m === "object" ? m._id : m)?.toString();
-              return onlineUsers.some((ou) => ou?.toString() === id);
-          }).length
+            const id = (typeof m === "object" ? m._id : m)?.toString();
+            return onlineUsers.some((ou) => ou?.toString() === id);
+        }).length
         : 0;
 
     return (
@@ -105,7 +105,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
             )}
             <div className="flex items-center justify-between">
                 {/* Clickable Info Area */}
-                <div 
+                <div
                     onClick={() => setIsInfoModalOpen(true)}
                     className="flex items-center gap-3 cursor-pointer hover:bg-base-200/50 p-1 rounded-xl transition-all min-w-0 flex-1 mr-2"
                     title="Xem thông tin chi tiết"
@@ -133,7 +133,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                         </div>
                         <p className="text-xs text-base-content/50 truncate mt-0.5">
                             {isDocuments ? (
-                                "My document"
+                                "Lưu và đồng bộ dữ liệu giữa các thiết bị"
                             ) : isGroup ? (
                                 `${onlineMemberCount} đang hoạt động · ${selectedUser.members?.length || 0} thành viên`
                             ) : isFriend ? (
@@ -160,46 +160,46 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
 
                     {/* Audio Call button (hidden for My Documents) */}
                     {!isDocuments && (
-                    <button 
-                        onClick={() => {
-                            if (isGroup) {
-                                setCallType("audio");
-                                setSelectedMembers([]);
-                                setMemberSearchQuery("");
-                                setCreateCallModalOpen(true);
-                            } else {
-                                initiateCall("audio", false);
-                            }
-                        }}
-                        className="btn btn-ghost btn-circle btn-sm text-base-content/60 hover:text-base-content"
-                        title="Cuộc gọi thoại"
-                    >
-                        <Phone className="size-4" />
-                    </button>
+                        <button
+                            onClick={() => {
+                                if (isGroup) {
+                                    setCallType("audio");
+                                    setSelectedMembers([]);
+                                    setMemberSearchQuery("");
+                                    setCreateCallModalOpen(true);
+                                } else {
+                                    initiateCall("audio", false);
+                                }
+                            }}
+                            className="btn btn-ghost btn-circle btn-sm text-base-content/60 hover:text-base-content"
+                            title="Cuộc gọi thoại"
+                        >
+                            <Phone className="size-4" />
+                        </button>
                     )}
 
                     {/* Video Call button (hidden for My Documents) */}
                     {!isDocuments && (
-                    <button 
-                        onClick={() => {
-                            if (isGroup) {
-                                setCallType("video");
-                                setSelectedMembers([]);
-                                setMemberSearchQuery("");
-                                setCreateCallModalOpen(true);
-                            } else {
-                                initiateCall("video", false);
-                            }
-                        }}
-                        className="btn btn-ghost btn-circle btn-sm text-base-content/60 hover:text-base-content"
-                        title="Cuộc gọi video"
-                    >
-                        <Video className="size-4" />
-                    </button>
+                        <button
+                            onClick={() => {
+                                if (isGroup) {
+                                    setCallType("video");
+                                    setSelectedMembers([]);
+                                    setMemberSearchQuery("");
+                                    setCreateCallModalOpen(true);
+                                } else {
+                                    initiateCall("video", false);
+                                }
+                            }}
+                            className="btn btn-ghost btn-circle btn-sm text-base-content/60 hover:text-base-content"
+                            title="Cuộc gọi video"
+                        >
+                            <Video className="size-4" />
+                        </button>
                     )}
 
                     {/* Search button */}
-                    <button 
+                    <button
                         onClick={onToggleSearch}
                         className={`btn btn-ghost btn-circle btn-sm ${isSearchOpen ? "text-primary bg-primary/10" : "text-base-content/60 hover:text-base-content"}`}
                         title="Tìm kiếm tin nhắn"
@@ -208,7 +208,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                     </button>
 
                     {/* Sidebar Toggle button */}
-                    <button 
+                    <button
                         onClick={onToggleSidebar}
                         className={`btn btn-ghost btn-circle btn-sm ${isSidebarOpen ? "text-primary bg-primary/10" : "text-base-content/60 hover:text-base-content"}`}
                         title="Thông tin hội thoại"
@@ -219,7 +219,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                     <div className="w-[1px] h-4 bg-base-300 mx-1"></div>
 
                     {/* Close button */}
-                    <button 
+                    <button
                         onClick={() => setSelectedUser(null)}
                         className="btn btn-ghost btn-circle btn-sm text-base-content/60 hover:text-base-content"
                         title="Đóng chat"
@@ -238,7 +238,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                             <h3 className="font-bold text-[17px] text-slate-800">
                                 {isDocuments ? "My document" : isGroup ? "Thông tin nhóm" : "Thông tin tài khoản"}
                             </h3>
-                            <button 
+                            <button
                                 onClick={() => setIsInfoModalOpen(false)}
                                 className="btn btn-ghost btn-circle btn-sm text-slate-500 hover:text-slate-800 hover:bg-slate-100"
                             >
@@ -285,7 +285,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                                             {selectedUser.fullName}
                                         </h4>
                                         {isGroup && (
-                                            <button 
+                                            <button
                                                 onClick={() => {
                                                     const newName = prompt("Nhập tên nhóm mới:", selectedUser.fullName);
                                                     if (newName && newName.trim() && newName !== selectedUser.fullName) {
@@ -301,7 +301,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                                 </div>
                                 <div className="mt-4">
                                     {isDocuments ? (
-                                        <button 
+                                        <button
                                             onClick={() => {
                                                 setIsInfoModalOpen(false);
                                                 const editor = document.querySelector('[contenteditable="true"]');
@@ -312,7 +312,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                                             Nhắn tin
                                         </button>
                                     ) : isGroup ? (
-                                        <button 
+                                        <button
                                             onClick={() => {
                                                 setIsInfoModalOpen(false);
                                                 const editor = document.querySelector('[contenteditable="true"]');
@@ -324,7 +324,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                                         </button>
                                     ) : (
                                         <div className="grid grid-cols-2 gap-2">
-                                            <button 
+                                            <button
                                                 onClick={() => {
                                                     setIsInfoModalOpen(false);
                                                     const editor = document.querySelector('[contenteditable="true"]');
@@ -334,7 +334,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                                             >
                                                 Nhắn tin
                                             </button>
-                                            <button 
+                                            <button
                                                 onClick={() => {
                                                     setIsInfoModalOpen(false);
                                                     initiateCall("audio", false);
@@ -369,10 +369,10 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                                                 const mPic = typeof member === "object" ? member.profilePic : "/avatar.png";
                                                 const mName = typeof member === "object" ? member.fullName : `Thành viên #${index + 1}`;
                                                 return (
-                                                    <img 
+                                                    <img
                                                         key={mId}
-                                                        src={mPic || "/avatar.png"} 
-                                                        alt={mName} 
+                                                        src={mPic || "/avatar.png"}
+                                                        alt={mName}
                                                         className="size-11 rounded-full object-cover border-[3px] border-white relative z-0 hover:z-10 bg-white cursor-pointer"
                                                         title={mName}
                                                         onClick={() => {
@@ -382,7 +382,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                                                 );
                                             })}
                                             {selectedUser.members?.length > 5 && (
-                                                <button 
+                                                <button
                                                     onClick={() => {
                                                         setIsInfoModalOpen(false);
                                                         if (!isSidebarOpen) onToggleSidebar();
@@ -410,8 +410,8 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                                             <div className="grid grid-cols-[100px_1fr]">
                                                 <span className="text-slate-500">Điện thoại</span>
                                                 <span className="font-medium text-slate-800">
-                                                    {selectedUser.phoneNumber 
-                                                        ? selectedUser.phoneNumber.replace(/(.{4})(.*)(.{3})/, (m, p1, p2, p3) => p1 + p2.replace(/./g, '*') + p3) 
+                                                    {selectedUser.phoneNumber
+                                                        ? selectedUser.phoneNumber.replace(/(.{4})(.*)(.{3})/, (m, p1, p2, p3) => p1 + p2.replace(/./g, '*') + p3)
                                                         : "Chưa cập nhật"
                                                     }
                                                 </span>
@@ -419,8 +419,8 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                                             <div className="grid grid-cols-[100px_1fr]">
                                                 <span className="text-slate-500">Email</span>
                                                 <span className="font-medium text-slate-800 truncate pr-2">
-                                                    {selectedUser.email 
-                                                        ? selectedUser.email.replace(/(.{2})(.*)(?=@)/, (m, p1, p2) => p1 + p2.replace(/./g, '*')) 
+                                                    {selectedUser.email
+                                                        ? selectedUser.email.replace(/(.{2})(.*)(?=@)/, (m, p1, p2) => p1 + p2.replace(/./g, '*'))
                                                         : "Chưa cập nhật"
                                                     }
                                                 </span>
@@ -447,18 +447,18 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                                     return (
                                         <div className="grid grid-cols-4 gap-1.5">
                                             {sharedImages.slice(0, 3).map((msg) => (
-                                                <div 
-                                                    key={msg._id} 
+                                                <div
+                                                    key={msg._id}
                                                     className="group/item relative aspect-square rounded-lg overflow-hidden border border-slate-200 shadow-sm"
                                                 >
-                                                    <img 
-                                                        src={msg.image} 
-                                                        alt="shared" 
-                                                        className="w-full h-full object-cover" 
+                                                    <img
+                                                        src={msg.image}
+                                                        alt="shared"
+                                                        className="w-full h-full object-cover"
                                                     />
                                                     {/* Hover options */}
                                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/item:opacity-100 transition-opacity flex items-center justify-center gap-2 z-10">
-                                                        <button 
+                                                        <button
                                                             onClick={() => {
                                                                 setIsInfoModalOpen(false);
                                                                 window.dispatchEvent(new CustomEvent("open-image-viewer", { detail: msg.image }));
@@ -468,7 +468,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                                                         >
                                                             <Search className="size-3.5 text-slate-800" />
                                                         </button>
-                                                        <button 
+                                                        <button
                                                             onClick={() => {
                                                                 setIsInfoModalOpen(false);
                                                                 const element = document.getElementById(`msg-${msg._id}`);
@@ -487,27 +487,27 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                                                 </div>
                                             ))}
                                             {sharedImages.length > 3 ? (
-                                                <div 
+                                                <div
                                                     onClick={() => {
                                                         setIsInfoModalOpen(false);
                                                         if (!isSidebarOpen) onToggleSidebar();
                                                     }}
                                                     className="aspect-square bg-[#e1f0ff] rounded-lg flex items-center justify-center text-[#0068ff] cursor-pointer hover:bg-[#cbe3ff] transition-colors shadow-sm"
                                                 >
-                                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
                                                 </div>
                                             ) : sharedImages.length === 4 ? (
-                                                <div 
-                                                    key={sharedImages[3]._id} 
+                                                <div
+                                                    key={sharedImages[3]._id}
                                                     className="group/item relative aspect-square rounded-lg overflow-hidden border border-slate-200 shadow-sm"
                                                 >
-                                                    <img 
-                                                        src={sharedImages[3].image} 
-                                                        alt="shared" 
-                                                        className="w-full h-full object-cover" 
+                                                    <img
+                                                        src={sharedImages[3].image}
+                                                        alt="shared"
+                                                        className="w-full h-full object-cover"
                                                     />
                                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/item:opacity-100 transition-opacity flex items-center justify-center gap-2 z-10">
-                                                        <button 
+                                                        <button
                                                             onClick={() => {
                                                                 setIsInfoModalOpen(false);
                                                                 window.dispatchEvent(new CustomEvent("open-image-viewer", { detail: sharedImages[3].image }));
@@ -517,7 +517,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                                                         >
                                                             <Search className="size-3.5 text-slate-800" />
                                                         </button>
-                                                        <button 
+                                                        <button
                                                             onClick={() => {
                                                                 setIsInfoModalOpen(false);
                                                                 const element = document.getElementById(`msg-${sharedImages[3]._id}`);
@@ -557,9 +557,9 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                                     return (
                                         <div className="space-y-2">
                                             {sharedFiles.map((msg, index) => (
-                                                <a 
+                                                <a
                                                     key={index}
-                                                    href={msg.file.url} 
+                                                    href={msg.file.url}
                                                     download={msg.file.name}
                                                     className="flex items-center gap-3 p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-700 transition-colors"
                                                 >
@@ -591,10 +591,10 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                                             {sharedLinks.map((msg, index) => {
                                                 const url = msg.text.match(/(https?:\/\/[^\s]+)/gi)?.[0] || "#";
                                                 return (
-                                                    <a 
+                                                    <a
                                                         key={index}
-                                                        href={url} 
-                                                        target="_blank" 
+                                                        href={url}
+                                                        target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="flex items-center gap-3 p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-sm text-[#0068ff] transition-colors"
                                                     >
@@ -611,7 +611,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                             {/* Footer Actions (Group) */}
                             {isGroup && (
                                 <div className="border-t-[8px] border-slate-100 py-2">
-                                    <div 
+                                    <div
                                         onClick={async () => {
                                             const amICreator = selectedUser.creator === authUser?._id || selectedUser.creator?._id === authUser?._id;
                                             if (amICreator) {
@@ -636,7 +636,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                             {/* Unfriend (Personal only, not My Documents) */}
                             {!isGroup && !isDocuments && isFriend && (
                                 <div className="border-t-[8px] border-slate-100 p-4">
-                                    <button 
+                                    <button
                                         onClick={async () => {
                                             if (window.confirm(`Bạn có chắc chắn muốn hủy kết bạn với ${selectedUser.fullName}?`)) {
                                                 await unfriend(selectedUser._id);
@@ -653,7 +653,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                         </div>
                     </div>
                 </div>
-            , document.body)}
+                , document.body)}
 
             {/* Create Group Call Modal */}
             {isCreateCallModalOpen && createPortal(
@@ -662,7 +662,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                         {/* Title Header */}
                         <div className="p-4 flex items-center justify-between border-b border-slate-100">
                             <h3 className="font-bold text-[17px] text-slate-800">Tạo cuộc gọi</h3>
-                            <button 
+                            <button
                                 onClick={() => setCreateCallModalOpen(false)}
                                 className="btn btn-ghost btn-circle btn-sm text-slate-500 hover:text-slate-800 hover:bg-slate-100"
                             >
@@ -674,9 +674,9 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                         <div className="p-3 border-b border-slate-100 relative">
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-                                <input 
-                                    type="text" 
-                                    placeholder="Tìm kiếm thành viên" 
+                                <input
+                                    type="text"
+                                    placeholder="Tìm kiếm thành viên"
                                     value={memberSearchQuery}
                                     onChange={(e) => setMemberSearchQuery(e.target.value)}
                                     className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-full text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:bg-white transition-all placeholder-slate-400"
@@ -726,11 +726,11 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                                                 const isSelected = selectedMembers.includes(mId);
 
                                                 return (
-                                                    <div 
+                                                    <div
                                                         key={mId}
                                                         onClick={() => {
-                                                            setSelectedMembers(prev => 
-                                                                isSelected 
+                                                            setSelectedMembers(prev =>
+                                                                isSelected
                                                                     ? prev.filter(id => id !== mId)
                                                                     : [...prev, mId]
                                                             );
@@ -747,9 +747,9 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                                                         </div>
 
                                                         {/* Avatar */}
-                                                        <img 
-                                                            src={mPic || "/avatar.png"} 
-                                                            alt={mName} 
+                                                        <img
+                                                            src={mPic || "/avatar.png"}
+                                                            alt={mName}
                                                             className="size-10 rounded-full object-cover border border-slate-100 shadow-sm"
                                                         />
 
@@ -766,13 +766,13 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
 
                         {/* Footer Controls */}
                         <div className="p-4 bg-slate-50 flex items-center justify-end gap-3 border-t border-slate-100">
-                            <button 
+                            <button
                                 onClick={() => setCreateCallModalOpen(false)}
                                 className="btn border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-300 rounded-lg px-6 font-semibold text-[14px]"
                             >
                                 Hủy
                             </button>
-                            <button 
+                            <button
                                 disabled={selectedMembers.length === 0}
                                 onClick={() => {
                                     setCreateCallModalOpen(false);
@@ -785,7 +785,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
                         </div>
                     </div>
                 </div>
-            , document.body)}
+                , document.body)}
         </div>
     );
 };
