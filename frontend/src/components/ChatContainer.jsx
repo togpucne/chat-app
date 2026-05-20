@@ -128,7 +128,7 @@ const renderFormattedText = (text, searchQuery = "") => {
 };
 
 const ChatContainer = () => {
-    const { messages, getMessages, isMessagesLoading, selectedUser, subscribeToMessages, unsubscribeFromMessages, deleteMessage, setReplyingTo, pinMessage, reactMessage, clearMessages, users, forwardMessages, removeGroupMember, leaveGroup, addGroupMembers, updateGroup, initiateCall } = useChatStore();
+    const { messages, getMessages, isMessagesLoading, selectedUser, subscribeToMessages, unsubscribeFromMessages, deleteMessage, setReplyingTo, pinMessage, reactMessage, clearMessages, users, forwardMessages, removeGroupMember, leaveGroup, addGroupMembers, updateGroup, initiateCall, setCreateCallModalOpen, setCallType } = useChatStore();
     const { authUser, onlineUsers, sendFriendRequest, acceptFriendRequest, rejectFriendRequest, unfriend } = useAuthStore();
     const messageEndRef = useRef(null);
     const fileInputRef = useRef(null);
@@ -964,7 +964,14 @@ const ChatContainer = () => {
                                                                             </div>
                                                                         </div>
                                                                         <button
-                                                                            onClick={() => initiateCall(isVideo ? "video" : "audio", false)}
+                                                                            onClick={() => {
+                                                                                if (selectedUser?.isGroup) {
+                                                                                    setCallType(isVideo ? "video" : "audio");
+                                                                                    setCreateCallModalOpen(true);
+                                                                                } else {
+                                                                                    initiateCall(isVideo ? "video" : "audio", false);
+                                                                                }
+                                                                            }}
                                                                             className="w-full mt-3 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-slate-800 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-98"
                                                                         >
                                                                             Gọi lại
@@ -997,7 +1004,14 @@ const ChatContainer = () => {
                                                                         </div>
                                                                         <button
                                                                             type="button"
-                                                                            onClick={() => initiateCall(isVideo ? "video" : "audio", false)}
+                                                                            onClick={() => {
+                                                                                if (selectedUser?.isGroup) {
+                                                                                    setCallType(isVideo ? "video" : "audio");
+                                                                                    setCreateCallModalOpen(true);
+                                                                                } else {
+                                                                                    initiateCall(isVideo ? "video" : "audio", false);
+                                                                                }
+                                                                            }}
                                                                             className="w-full mt-3 py-2.5 bg-slate-200/90 hover:bg-slate-200 border border-slate-300/80 text-slate-900 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-98"
                                                                         >
                                                                             Gọi lại

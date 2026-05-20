@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useChatStore } from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
-import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, X, Monitor, MonitorOff } from "lucide-react";
+import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, X, Monitor, MonitorOff, UserPlus } from "lucide-react";
 import GroupCallGrid from "./GroupCallGrid";
 import { useGroupCallMesh } from "../hooks/useGroupCallMesh";
 import { useSpeakingDetector } from "../hooks/useSpeakingDetector";
 import toast from "react-hot-toast";
 
 export default function CallOverlay() {
-    const { activeCall, acceptCall, rejectCall, endCall, closeCallOverlay, initiateCall } = useChatStore();
+    const { activeCall, acceptCall, rejectCall, endCall, closeCallOverlay, initiateCall, setCreateCallModalOpen } = useChatStore();
     const { authUser } = useAuthStore();
     
     const [isMuted, setIsMuted] = useState(false);
@@ -888,6 +888,18 @@ export default function CallOverlay() {
                         ) : (
                             <Monitor className="size-5" />
                         )}
+                    </button>
+                )}
+
+                {/* Invite Members to ongoing group call */}
+                {isGroupConnected && (
+                    <button
+                        type="button"
+                        onClick={() => setCreateCallModalOpen(true)}
+                        className="size-12 rounded-full flex items-center justify-center transition-all bg-slate-800/80 text-slate-300 hover:bg-slate-700 border border-slate-700/50"
+                        title="Thêm người vào cuộc gọi"
+                    >
+                        <UserPlus className="size-5" />
                     </button>
                 )}
 

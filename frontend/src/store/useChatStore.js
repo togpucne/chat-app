@@ -37,8 +37,10 @@ export const useChatStore = create((set, get) => ({
     /** groupId -> ongoing call snapshot from server */
     groupCalls: {},
     isCreateCallModalOpen: false,
+    callType: "video",
 
     setCreateCallModalOpen: (open) => set({ isCreateCallModalOpen: open }),
+    setCallType: (type) => set({ callType: type }),
 
     setReplyingTo: (message) => set({ replyingTo: message }),
 
@@ -853,6 +855,7 @@ export const useChatStore = create((set, get) => ({
     clearMessages: () => set({ messages: [] }),
 
     initiateCall: (type, isGroup = false, invitedUsers = []) => {
+        set({ callType: type }); // Sync callType state when initiating
         const { selectedUser } = get();
         const authUser = useAuthStore.getState().authUser;
         const socket = useAuthStore.getState().socket;
@@ -860,7 +863,7 @@ export const useChatStore = create((set, get) => ({
 
         if (isGroup) {
             const existing = get().groupCalls[selectedUser._id];
-            if (existing?.participants?.length > 0) {
+            if (existing?.participants?.length > 0 && (!invitedUsers || invitedUsers.length === 0)) {
                 get().joinGroupCall(selectedUser._id);
                 return;
             }

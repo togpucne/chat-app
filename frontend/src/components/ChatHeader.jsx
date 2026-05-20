@@ -23,13 +23,12 @@ const formatLastActive = (updatedAt, isOnline) => {
 };
 
 const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOpen, onOpenAddMember }) => {
-    const { selectedUser, setSelectedUser, leaveGroup, messages, updateGroup, initiateCall, groupCalls, joinGroupCall, activeCall, isCreateCallModalOpen, setCreateCallModalOpen } = useChatStore();
+    const { selectedUser, setSelectedUser, leaveGroup, messages, updateGroup, initiateCall, groupCalls, joinGroupCall, activeCall, isCreateCallModalOpen, setCreateCallModalOpen, callType, setCallType } = useChatStore();
     const { onlineUsers, authUser, unfriend } = useAuthStore();
 
     const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
     const [isUploadingGroupPic, setIsUploadingGroupPic] = useState(false);
     const groupPicInputRef = useRef(null);
-    const [callType, setCallType] = useState("video");
     const [selectedMembers, setSelectedMembers] = useState([]);
     const [memberSearchQuery, setMemberSearchQuery] = useState("");
     const [ticker, setTicker] = useState(0);
@@ -666,7 +665,7 @@ const ChatHeader = ({ onToggleSearch, isSearchOpen, onToggleSidebar, isSidebarOp
 
             {/* Create Group Call Modal */}
             {isCreateCallModalOpen && createPortal(
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center animate-fade-in p-4 select-none">
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[10001] flex items-center justify-center animate-fade-in p-4 select-none">
                     <div className="bg-white text-slate-800 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl animate-scale-up flex flex-col max-h-[90vh]">
                         {/* Title Header */}
                         <div className="p-4 flex items-center justify-between border-b border-slate-100">
