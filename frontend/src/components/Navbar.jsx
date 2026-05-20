@@ -1,6 +1,6 @@
 
 import { Link } from "react-router-dom";
-import { LogOut, MessageSquare, Settings, User } from "lucide-react";
+import { LogOut, MessageSquare, Settings, User, Bot } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore.js";
 import { useChatStore } from "../store/useChatStore.js";
 
@@ -39,6 +39,14 @@ const Navbar = () => {
 
             {authUser && (
               <>
+                <Link
+                  to="/ai-chat"
+                  className="btn btn-sm gap-2"
+                >
+                  <Bot className="size-5" />
+                  <span className="hidden sm:inline">Trợ lý AI</span>
+                </Link>
+
                 <Link
                   to="/profile"
                   className="btn btn-sm gap-2"
